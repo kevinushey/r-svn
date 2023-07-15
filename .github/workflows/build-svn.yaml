@@ -19,8 +19,6 @@ jobs:
         shell: msys2 {0}
     strategy:
       fail-fast: false
-      matrix:
-        script: [ 'check', 'installer' ]
     steps:
 
     - name: Prepare git
@@ -51,22 +49,16 @@ jobs:
         SetTimezone
         InstallMiktex -ErrorAction SilentlyContinue;
 
-    - name: Build and Check
+    - name: Build
       run: |
         sed -i.bak 's/rsync -rc/rsync -r/' tools/rsync-recommended
-        ./.github/scripts/win-${{matrix.script}}.sh
-
-    - name: Print failed tests
-      if: failure() && matrix.script == 'check'
-      run: tail -n100 tests/*.fail
+        ./.github/scripts/win-installer.sh
 
     - name: Run Installer
       run: .\src\gnuwin32\installer\R-devel-win.exe /SILENT
-      if: matrix.script == 'installer'
       shell: powershell
 
     - uses: actions/upload-artifact@v3
       with:
         name: installer
         path: src/gnuwin32/installer/R-devel-win.exe
-      if: matrix.script == 'installer'

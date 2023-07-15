@@ -1,5 +1,8 @@
 #-*- Makefile -*-
 
+## Debug flags
+EOPTS = -O0
+
 ## Curl / icu flags
 #CURL_LIBS = -lcurl -lnghttp2 -lssh2 -lz -lssl -lcrypto -lgdi32 -lws2_32 -lcrypt32 -lwldap32
 #ICU_LIBS = -licuin -licuuc -licudt -lstdc++
