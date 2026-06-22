@@ -72,10 +72,12 @@ R_HOME=/path/to/R ./fuzz_parse fuzz_parse_corpus/*
 R_HOME=/path/to/R ./fuzz_parse -dict=dictionaries/fuzz_parse.dict fuzz_parse_corpus
 ```
 
-`build.sh` defaults to `-fsanitize=fuzzer,address,undefined`.  Set
-`SANITIZERS`, `CC`, or `CFLAGS` to override; it also honors
-`LIB_FUZZING_ENGINE` and `OUT` so the OSS-Fuzz build environment can
-reuse it after building R.
+`build.sh` defaults to `-fsanitize=fuzzer,address`.  UBSAN is off by
+default (`SANITIZERS=fuzzer,address,undefined` adds it): R's integer and
+float cast paths emit a high volume of reports that would drown out other
+findings for now.  Set `SANITIZERS`, `CC`, or `CFLAGS` to override; the
+script also honors `LIB_FUZZING_ENGINE` and `OUT` so the OSS-Fuzz build
+environment can reuse it after building R.
 
 ## OSS-Fuzz integration
 

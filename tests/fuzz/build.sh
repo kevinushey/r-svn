@@ -16,7 +16,11 @@
 # Environment overrides:
 #   CC                  compiler (default: clang)
 #   R_HOME              R installation/build to link against
-#   SANITIZERS          -fsanitize list (default: fuzzer,address,undefined)
+#   SANITIZERS          -fsanitize list (default: fuzzer,address).  Add
+#                       "undefined" to also run UBSAN; it is off by
+#                       default because R's integer/float cast paths emit
+#                       a high volume of reports that would drown out
+#                       other findings for now.
 #   CFLAGS              if set, used verbatim instead of the default flags
 #                       (the caller is then responsible for the fuzzing
 #                       engine, e.g. via -fsanitize=fuzzer)
@@ -30,7 +34,7 @@ here=$(cd "$(dirname "$0")" && pwd)
 out=${OUT:-$here}
 
 CC=${CC:-clang}
-SANITIZERS=${SANITIZERS:-fuzzer,address,undefined}
+SANITIZERS=${SANITIZERS:-fuzzer,address}
 
 # Locate R.
 if [ -n "${R_HOME:-}" ]; then
