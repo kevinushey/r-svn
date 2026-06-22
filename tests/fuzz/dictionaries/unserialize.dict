@@ -1,9 +1,9 @@
 # R serialization format dictionary for AFL++
 
 # Format headers (XDR = "X\n", ASCII = "A\n", binary = "B\n")
-"X\n"
-"A\n"
-"B\n"
+"X\x0a"
+"A\x0a"
+"B\x0a"
 
 # Encoding strings
 "UTF-8"
