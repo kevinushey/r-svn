@@ -1,4 +1,23 @@
 /*
+ *  R : A Computer Language for Statistical Data Analysis
+ *  Copyright (C) 1995--2026  The R Core Team
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, a copy is available at
+ *  https://www.R-project.org/Licenses/
+ */
+
+/*
  * In-tree fuzz harnesses for R, modeled on CPython's
  * Modules/_xxtestfuzz/fuzzer.c.
  *
@@ -6,7 +25,7 @@
  * size_t size)` in this single translation unit.  The libFuzzer entry
  * point LLVMFuzzerTestOneInput() dispatches to them.  Building with
  *
- *     -D_R_FUZZ_ONE -D_R_FUZZ_fuzz_<name>
+ *     -D_R_FUZZ_ONE -D_R_FUZZ_<name>
  *
  * compiles exactly one target into the binary; this is what OSS-Fuzz
  * does, one binary per name listed in fuzz_tests.txt.  Building without
@@ -441,6 +460,19 @@ static int fuzz_dcf(const char *data, size_t size)
     return 0;
 }
 
+/* ---------------------------------------------------------------------
+ * Sanitizer defaults
+ *
+ * Bake in the runtime options the targets need, so the binary works
+ * without the caller exporting them (an explicit ASAN_OPTIONS still
+ * wins).  R intentionally frees little at shutdown, so leak detection
+ * would report a flood of false positives on every exit; disable it.
+ * ------------------------------------------------------------------- */
+const char *__asan_default_options(void)
+{
+    return "detect_leaks=0";
+}
+
 /* =====================================================================
  * libFuzzer entry points
  * ===================================================================== */
@@ -449,6 +481,15 @@ int LLVMFuzzerInitialize(int *argc, char ***argv)
 {
     (void)argc;
     (void)argv;
+
+    /* Point the embedded R at the build it was linked against, so the
+       binary runs without the caller setting R_HOME.  build.sh bakes in
+       R_FUZZ_R_HOME for local builds; the setenv is non-overwriting, so
+       an explicit R_HOME (or the OSS-Fuzz environment) still wins.  Must
+       be set before Rf_initEmbeddedR(). */
+#ifdef R_FUZZ_R_HOME
+    setenv("R_HOME", R_FUZZ_R_HOME, 0);
+#endif
 
     /* Enable experimental pipe-bind (=>) so the parser target can reach
        that code path.  Harmless for the other targets.  Must be set
@@ -474,7 +515,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 {
     const char *input = (const char *)data;
 
-#if !defined(_R_FUZZ_ONE) || defined(_R_FUZZ_fuzz_parse)
+#if !defined(_R_FUZZ_ONE) || defined(_R_FUZZ_parse)
     {
         static int initialized = 0;
         if (!initialized) {
@@ -486,7 +527,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     }
 #endif
 
-#if !defined(_R_FUZZ_ONE) || defined(_R_FUZZ_fuzz_grep)
+#if !defined(_R_FUZZ_ONE) || defined(_R_FUZZ_grep)
     {
         static int initialized = 0;
         if (!initialized) {
@@ -498,7 +539,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     }
 #endif
 
-#if !defined(_R_FUZZ_ONE) || defined(_R_FUZZ_fuzz_unserialize)
+#if !defined(_R_FUZZ_ONE) || defined(_R_FUZZ_unserialize)
     {
         static int initialized = 0;
         if (!initialized) {
@@ -510,7 +551,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     }
 #endif
 
-#if !defined(_R_FUZZ_ONE) || defined(_R_FUZZ_fuzz_dcf)
+#if !defined(_R_FUZZ_ONE) || defined(_R_FUZZ_dcf)
     {
         static int initialized = 0;
         if (!initialized) {
