@@ -116,14 +116,14 @@ code.
 ```sh
 cd tests/fuzz
 
-# build one binary per target, plus the 'fuzz' launcher, into this
-# directory (set OUT=<dir> to write elsewhere)
-R_HOME=/path/to/R ./build.sh
+# build into a directory of your choice (defaults to this one)
+R_HOME=/path/to/R OUT=/tmp/rfuzz ./build.sh
+cd /tmp/rfuzz
 
 # fuzz a target -- dictionary and seed corpus are supplied automatically
 ./fuzz parse
 
-# replay the seed corpus once and exit (smoke test: nonzero if any input
+# replay the corpus once and exit (smoke test: nonzero if any input
 # crashes)
 ./fuzz parse -runs=0
 
@@ -131,12 +131,18 @@ R_HOME=/path/to/R ./build.sh
 ./fuzz parse -max_total_time=60
 ```
 
-`./fuzz <target>` runs the target with its default dictionary
-(`dictionaries/<target>.dict`) and seed corpus (`<target>_corpus/`) baked
-in, so no paths are needed.  Newly discovered inputs are written to a
-separate working corpus under the build output (`<OUT>/corpus/<target>`),
-never to the tracked seed corpus, which is read-only input -- so a fuzzing
-run never dirties the checked-in seeds.  Passing `-dict=` or any
+`build.sh` makes the output directory a self-contained bundle: each
+target's binary, its `<target>.dict`, its `corpus/<target>/` (the seed
+corpus, copied from the tree), and the `fuzz` launcher all live there.
+The launcher resolves them relative to its own location, so the bundle
+can be moved or run from anywhere (only R itself is referenced by an
+absolute path).
+
+`./fuzz <target>` runs the target with that dictionary and corpus, so no
+paths are needed.  Newly discovered inputs accumulate in
+`corpus/<target>/`, so a later run resumes from them rather than starting
+cold -- and because that corpus is the build's own copy, fuzzing never
+touches the checked-in seeds in the source tree.  Passing `-dict=` or any
 positional file/directory argument overrides the corresponding default.
 
 `R_HOME` is only needed by `build.sh`, to locate the R to build against.
