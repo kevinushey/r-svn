@@ -1,0 +1,5 @@
+1:10 |> sort() |> rev()
+mtcars |> lm(mpg ~ wt, data = _)
+x |> f(a = _, b = _)
+1:10 |> (\(x) x + 1)()
+"hello" |> paste0("world")

@@ -1,0 +1,1 @@
+0x1.fffffffffffffp+1023 + 0x0.0000000000001p-1022 + 0xABCDEF + 0x0p0

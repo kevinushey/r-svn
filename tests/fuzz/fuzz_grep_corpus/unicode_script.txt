@@ -1,0 +1,1 @@
+\p{Han}+\p{Greek}*

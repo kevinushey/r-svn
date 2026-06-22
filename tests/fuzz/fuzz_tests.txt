@@ -1,0 +1,4 @@
+fuzz_parse
+fuzz_grep
+fuzz_unserialize
+fuzz_dcf

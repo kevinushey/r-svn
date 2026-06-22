@@ -1,0 +1,6 @@
+Package: tabmix
+Description:	Tab after colon
+	Tab continuation
+    Space continuation
+	 Mixed tab-space continuation
+Version:	1.0

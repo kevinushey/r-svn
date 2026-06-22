@@ -1,0 +1,7 @@
+Package: dotcont
+Description: First paragraph.
+    .
+    Second paragraph after a dot-blank line.
+    .
+    Third paragraph.
+Version: 1.0

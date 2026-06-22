@@ -1,0 +1,1 @@
+r"[contains ) and ( and ]still going]"

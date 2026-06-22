@@ -1,0 +1,9 @@
+Package: bar
+Version: 2.1.0
+Depends: R (>= 3.5.0),
+    stats,
+    utils
+Description: A package with
+    a multi-line description that
+    continues over several lines.
+License: GPL-2 | GPL-3

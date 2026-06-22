@@ -1,0 +1,6 @@
+Package: ws
+Version:	1.0
+Title: 	 Tabs and spaces mixed
+Description:	Content after tab
+	tab continuation
+    space continuation

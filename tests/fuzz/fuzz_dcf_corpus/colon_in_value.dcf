@@ -1,0 +1,4 @@
+Package: test
+URL: https://example.com:8080/path
+Description: Has colons: like: this: everywhere
+Depends: R (>= 4.0.0)

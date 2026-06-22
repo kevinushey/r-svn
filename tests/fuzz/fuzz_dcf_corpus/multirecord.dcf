@@ -1,0 +1,11 @@
+Package: alpha
+Version: 1.0
+Title: First
+
+Package: beta
+Version: 2.0
+Title: Second
+
+Package: gamma
+Version: 3.0
+Title: Third

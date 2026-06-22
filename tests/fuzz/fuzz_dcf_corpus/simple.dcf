@@ -1,0 +1,5 @@
+Package: foo
+Version: 1.0.0
+Title: A Test Package
+Description: This is a simple test package.
+License: MIT
