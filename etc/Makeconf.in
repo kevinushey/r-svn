@@ -155,7 +155,7 @@ TCLTK_LIBS = @TCLTK_LIBS@
 YACC = @YACC@
 
 ## for linking to libR.a
-STATIC_LIBR = @WANT_R_STATIC_TRUE@ @STATICR1@ "$(R_HOME)/lib$(R_ARCH)/libR.a" @STATICR2@ $(BLAS_LIBS) $(FLIBS) @R_XTRA_LIBS@ $(LIBINTL) @READLINE_LIBS@ $(LIBS)
+STATIC_LIBR = @WANT_R_STATIC_TRUE@ @STATICR1@ "$(R_HOME)/lib$(R_ARCH)/libR.a" @STATICR2@ $(BLAS_LIBS) $(FLIBS) @R_XTRA_LIBS@ @LIBINTL@ @READLINE_LIBS@ @LIBS@
 
 ## These are recorded as macros for legacy use in packages
 ## set on AIX, formerly for old glibc (-D__NO_MATH_INLINES)
