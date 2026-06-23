@@ -4281,6 +4281,15 @@ is @option{--with-valgrind-instrumentation=@var{level}}, where
 anything.)  The system headers for @command{valgrind} are required: on
 Linux they may be in a separate package such as @pkg{valgrind-devel}.
 
+@R{} can also be built with instrumentation for coverage-guided fuzzing of
+its parsers and decoders (the harnesses under @file{tests/fuzz}).  The
+@command{configure} option @option{--with-fuzzer-instrumentation} compiles
+@R{} with @I{AddressSanitizer} and @I{libFuzzer} coverage and selects a
+static @file{libR.a}; it requires a @command{clang} with @I{libFuzzer}
+support.  The sanitizer set may be given explicitly, e.g.@:
+@option{--with-fuzzer-instrumentation=address,undefined}.  See
+@file{tests/fuzz/README.md} for details.
+
 If you need to re-configure @R{} with different options you may need to run
 @code{make clean} or even @code{make distclean} before doing so.
 
