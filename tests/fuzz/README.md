@@ -140,10 +140,10 @@ artifacts out of git.  Override with `OUT`.
 
 `build.sh` makes that directory a self-contained bundle: each target's
 binary, its `<target>.dict`, its `corpus/<target>/` (the seed corpus,
-copied from the tree), and the `fuzz` launcher all live there.  The
-launcher resolves them relative to its own location, so the bundle can be
-moved or run from anywhere (only R itself is referenced by an absolute
-path).
+copied from the tree), and the `fuzz` and `campaign` helpers all live
+there.  The helpers resolve everything relative to their own location, so
+the bundle can be moved or run from anywhere (only R itself is referenced
+by an absolute path).
 
 `./fuzz <target>` runs the target with that dictionary and corpus, so no
 paths are needed.  Newly discovered inputs accumulate in
@@ -160,6 +160,38 @@ something that on macOS must happen before the process starts, so it
 cannot be baked into the binary.  (On ELF the rpath alone resolves those
 libraries, so the binaries can also be run directly there; `fuzz` works
 everywhere.)
+
+### Running a campaign
+
+For a real, indefinite, crash-tolerant run use the `campaign` helper:
+
+```sh
+./campaign parse        # 4 workers (default)
+./campaign grep 8       # 8 workers
+                        # Ctrl-C to stop
+```
+
+It launches N independent `fuzz` workers that share the one corpus
+(libFuzzer cross-pollinates new inputs via `-reload`) and restarts any
+worker that exits, so a crash is recorded and fuzzing continues rather
+than stopping at the first finding.  Crash-inducing inputs
+(`crash-*`/`oom-*`/`timeout-*`) and a per-worker log land in
+`findings/<target>/`.
+
+This deliberately does **not** use libFuzzer's own `-fork`/`-jobs`: those
+spawn their workers through `/bin/sh`, and on macOS SIP strips the
+`DYLD_*` library-path the workers need, so they abort.  Driving `fuzz`
+directly (which sets the path and `exec`s the binary itself) sidesteps
+that, so the same campaign works on Linux and macOS.  On Linux you may
+still use `./fuzz <target> -jobs=N -workers=N` if you prefer libFuzzer's
+built-in parallelism.
+
+To get a symbolized report for a saved finding, replay it through the
+target:
+
+```sh
+./fuzz grep findings/grep/crash-XXXX 2>&1 | sed -n '/ERROR: /,/SUMMARY/p'
+```
 
 `build.sh` does not pick the sanitizers itself.  It reads the compiler
 and flags R was built with (`R CMD config --no-user-files --no-site-files

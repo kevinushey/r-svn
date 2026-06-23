@@ -1,9 +1,11 @@
 # Build artifacts from build.sh when OUT is left at the default (this dir):
-# the 'fuzz' launcher, the per-target binaries, debug bundles, the staged
-# <target>.dict copies, and the working corpus the launcher writes new
-# inputs into.  The tracked seed corpora live in <target>_corpus/ and the
-# source dictionaries in dictionaries/, neither of which is matched here.
+# the 'fuzz' and 'campaign' helpers, the per-target binaries, debug
+# bundles, the staged <target>.dict copies, the working corpus the
+# launcher writes new inputs into, and campaign findings.  The tracked
+# seed corpora live in <target>_corpus/ and the source dictionaries in
+# dictionaries/, neither of which is matched here.
 /fuzz
+/campaign
 /parse
 /grep
 /unserialize
@@ -11,3 +13,4 @@
 /*.dict
 *.dSYM/
 /corpus/
+/findings/
