@@ -28,8 +28,9 @@
 #
 # Requirements:
 #   - clang with libFuzzer (-fsanitize=fuzzer). Not Apple Clang.
-#   - An R built with --enable-R-shlib (so libR is available to link).
-#     Point the script at it with R_HOME, or have `R` on PATH.
+#   - An R built with --enable-R-shlib or --enable-R-static-lib (so libR
+#     is available to link).  Point the script at it with R_HOME, or have
+#     `R` on PATH.
 #
 # The sanitizer and coverage instrumentation are NOT chosen here: they
 # come from how R itself was configured.  R records its build flags in
@@ -107,10 +108,20 @@ else
 fi
 cflags="$cflags -I$rinc"
 
-# Link against libR with an rpath (resolves libR and its private libs on
-# ELF) and add the fuzzing engine: OSS-Fuzz supplies its own via
-# LIB_FUZZING_ENGINE, otherwise use libFuzzer.
-ldflags="-L$rlib -lR -Wl,-rpath,$rlib"
+# Link against libR, then add the fuzzing engine: OSS-Fuzz supplies its
+# own via LIB_FUZZING_ENGINE, otherwise use libFuzzer.  The rpath resolves
+# libR (when shared) and R's private libs (e.g. libRblas) on ELF.
+#
+# How libR is linked depends on how R was built:
+#   --enable-R-shlib       shared libR -- link -lR.
+#   --enable-R-static-lib  static libR.a -- the complete static link line
+#                          (whole-archive/force_load, R's external deps)
+#                          comes from R itself via `R CMD config --ldflags`.
+if [ -f "$rlib/libR.a" ]; then
+    ldflags="$(r_cmd_config --ldflags) -Wl,-rpath,$rlib"
+else
+    ldflags="-L$rlib -lR -Wl,-rpath,$rlib"
+fi
 if [ -n "${LIB_FUZZING_ENGINE:-}" ]; then
     ldflags="$ldflags $LIB_FUZZING_ENGINE"
 else
