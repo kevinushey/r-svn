@@ -1073,6 +1073,7 @@ ac_user_opts='
 enable_option_checking
 enable_R_profiling
 enable_memory_profiling
+with_fuzzer_instrumentation
 enable_R_framework
 enable_R_shlib
 enable_R_static_lib
@@ -1852,7 +1853,8 @@ Optional Features:
                           specify its installation prefix [no,
                           /Library/Frameworks]
   --enable-R-shlib        build the shared/dynamic library 'libR' [no]
-  --enable-R-static-lib   build the static library 'libR.a' [no]
+  --enable-R-static-lib   build the static library 'libR.a' [no, yes with
+                          --with-fuzzer-instrumentation]
   --enable-BLAS-shlib     build BLAS into a shared/dynamic library [perhaps]
   --enable-maintainer-mode
                           enable make rules and dependencies not useful (and
@@ -1881,6 +1883,10 @@ Optional Features:
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+  --with-fuzzer-instrumentation[=SANITIZERS]
+                          build R instrumented for the fuzz targets in
+                          tests/fuzz (implies a static libR; SANITIZERS
+                          defaults to address) [no]
   --with-C23              use C23 if available [yes]
   --with-CXX20            make C++20 the default C++ standard if available
                           [yes]
@@ -4487,6 +4493,32 @@ esac
 fi
 
 
+## Build R with the sanitizer + coverage instrumentation used by the in-tree
+## fuzz targets (tests/fuzz).  When enabled the flags are folded into CC and
+## CFLAGS further below, and R records them in etc/Makeconf, so
+## tests/fuzz/build.sh inherits them and the fuzz binaries are instrumented
+## exactly like libR.  SANITIZERS is the -fsanitize set (default 'address');
+## the libFuzzer coverage 'fuzzer-no-link' is always added.  This needs a
+## clang with libFuzzer (not Apple clang) -- pass CC accordingly.  A static
+## libR is recommended for instrumented builds and is the default selected
+## here.  See tests/fuzz/README.md.
+
+# Check whether --with-fuzzer-instrumentation was given.
+if test ${with_fuzzer_instrumentation+y}
+then :
+  withval=$with_fuzzer_instrumentation; want_fuzzer="${withval}"
+else case e in #(
+  e) want_fuzzer=no ;;
+esac
+fi
+
+case "${want_fuzzer}" in
+  no|"") want_fuzzer=no; fuzzer_sanitizers= ;;
+  yes)   fuzzer_sanitizers=address ;;
+  *)     fuzzer_sanitizers="${want_fuzzer}"; want_fuzzer=yes ;;
+esac
+
+
 ## Allow the user to specify building an R framework (Darwin).
 # Check whether --enable-R-framework was given.
 if test ${enable_R_framework+y}
@@ -4532,6 +4564,11 @@ else
 fi
 
 
+if test "x${want_fuzzer}" = xyes && test "x${want_R_framework}" = xyes; then
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: --with-fuzzer-instrumentation is intended for a non-framework build; a framework build is not recommended for fuzzing" >&5
+printf "%s\n" "$as_me: WARNING: --with-fuzzer-instrumentation is intended for a non-framework build; a framework build is not recommended for fuzzing" >&2;}
+fi
+
 ## Allow the user to specify building R as a shared library.
 ## (but a 'dynamic library' in the terminology of macOS).
 ## <NOTE>
@@ -4563,7 +4600,13 @@ if test ${enable_R_static_lib+y}
 then :
   enableval=$enable_R_static_lib; want_R_static="${enableval}"
 else case e in #(
-  e) want_R_static="no" ;;
+  e) if test "x${want_fuzzer}" = xyes && test "x${want_R_shlib}" != xyes; then
+   ## a static libR is recommended for instrumented fuzzing builds, and gives
+   ## a linkable libR on macOS where --enable-R-shlib is off by default.
+   want_R_static=yes
+ else
+   want_R_static=no
+ fi ;;
 esac
 fi
 
@@ -8064,6 +8107,31 @@ then :
 
 fi
  ## see note above
+
+## Fold in the fuzzer instrumentation now, before the per-standard CC variants
+## (CC23/CC17/...) and CFLAGS are derived below, so every C translation unit
+## and every link (MAIN_LD/SHLIB_LD/DYLIB_LD all default to $(CC)) carries it,
+## matching libR's instrumentation.  Only C is instrumented: the fuzz targets
+## reach C code, so CC/CFLAGS suffice (see tests/fuzz/README.md).
+if test "x${want_fuzzer}" = xyes; then
+  fuzzer_iflags="-fsanitize=${fuzzer_sanitizers},fuzzer-no-link"
+  { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether ${CC} accepts ${fuzzer_iflags}" >&5
+printf %s "checking whether ${CC} accepts ${fuzzer_iflags}... " >&6; }
+  cat > conftest.c <<_ACEOF
+int main(void){ return 0; }
+_ACEOF
+  if ${CC} ${fuzzer_iflags} ${CFLAGS} conftest.c -o conftest${ac_exeext} >&5 2>&1; then
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+    CC="${CC} ${fuzzer_iflags}"
+    CFLAGS="${CFLAGS} -g -O1 -fno-omit-frame-pointer"
+  else
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+    as_fn_error $? "--with-fuzzer-instrumentation requires a clang with libFuzzer support (-fsanitize=fuzzer); on macOS set CC to the Homebrew LLVM clang (e.g. CC=/opt/homebrew/opt/llvm/bin/clang), not Apple clang" "$LINENO" 5
+  fi
+  rm -f conftest.c conftest${ac_exeext}
+fi
 
 CC_save=${CC}
 CFLAGS_save=${CFLAGS}

@@ -248,6 +248,25 @@ else
 fi],
 [want_memory_profiling=no])
 
+## Build R with the sanitizer + coverage instrumentation used by the in-tree
+## fuzz targets (tests/fuzz).  When enabled the flags are folded into CC and
+## CFLAGS further below, and R records them in etc/Makeconf, so
+## tests/fuzz/build.sh inherits them and the fuzz binaries are instrumented
+## exactly like libR.  SANITIZERS is the -fsanitize set (default 'address');
+## the libFuzzer coverage 'fuzzer-no-link' is always added.  This needs a
+## clang with libFuzzer (not Apple clang) -- pass CC accordingly.  A static
+## libR is recommended for instrumented builds and is the default selected
+## here.  See tests/fuzz/README.md.
+AC_ARG_WITH([fuzzer-instrumentation],
+[AS_HELP_STRING([--with-fuzzer-instrumentation@<:@=SANITIZERS@:>@],[build R instrumented for the fuzz targets in tests/fuzz (implies a static libR; SANITIZERS defaults to address) @<:@no@:>@])],
+[want_fuzzer="${withval}"],
+[want_fuzzer=no])
+case "${want_fuzzer}" in
+  no|"") want_fuzzer=no; fuzzer_sanitizers= ;;
+  yes)   fuzzer_sanitizers=address ;;
+  *)     fuzzer_sanitizers="${want_fuzzer}"; want_fuzzer=yes ;;
+esac
+
 ## Allow the user to specify building an R framework (Darwin).
 AC_ARG_ENABLE([R-framework],
 [AS_HELP_STRING([--enable-R-framework@<:@=DIR@:>@],[macOS only: build R framework (if possible), and specify
@@ -282,6 +301,10 @@ if test "${want_R_framework}" != no; then
 fi
 AM_CONDITIONAL(WANT_R_FRAMEWORK, [test "x${want_R_framework}" = xyes])
 
+if test "x${want_fuzzer}" = xyes && test "x${want_R_framework}" = xyes; then
+  AC_MSG_WARN([--with-fuzzer-instrumentation is intended for a non-framework build; a framework build is not recommended for fuzzing])
+fi
+
 ## Allow the user to specify building R as a shared library.
 ## (but a 'dynamic library' in the terminology of macOS).
 ## <NOTE>
@@ -297,9 +320,15 @@ AC_ARG_ENABLE([R-shlib],
 AM_CONDITIONAL(WANT_R_SHLIB, [test "x${want_R_shlib}" = xyes])
 
 AC_ARG_ENABLE([R-static-lib],
-[AS_HELP_STRING([--enable-R-static-lib],[build the static library 'libR.a' @<:@no@:>@])],
+[AS_HELP_STRING([--enable-R-static-lib],[build the static library 'libR.a' @<:@no, yes with --with-fuzzer-instrumentation@:>@])],
 [want_R_static="${enableval}"],
-[want_R_static="no"])
+[if test "x${want_fuzzer}" = xyes && test "x${want_R_shlib}" != xyes; then
+   ## a static libR is recommended for instrumented fuzzing builds, and gives
+   ## a linkable libR on macOS where --enable-R-shlib is off by default.
+   want_R_static=yes
+ else
+   want_R_static=no
+ fi])
 if test "x${want_R_static}" = xyes; then
   if test "x${want_R_shlib}" = xyes; then
     AC_MSG_WARN([--enable-R-static-lib conflicts with --enable-R-shlib and will be ignored])
@@ -761,6 +790,28 @@ AC_ARG_VAR([PKG_CONFIG_LIBDIR], [path overriding pkg-config's default search pat
 AC_PROG_CC
 dnl AC_PROG_GCC_TRADITIONAL
 AC_USE_SYSTEM_EXTENSIONS ## see note above
+
+## Fold in the fuzzer instrumentation now, before the per-standard CC variants
+## (CC23/CC17/...) and CFLAGS are derived below, so every C translation unit
+## and every link (MAIN_LD/SHLIB_LD/DYLIB_LD all default to $(CC)) carries it,
+## matching libR's instrumentation.  Only C is instrumented: the fuzz targets
+## reach C code, so CC/CFLAGS suffice (see tests/fuzz/README.md).
+if test "x${want_fuzzer}" = xyes; then
+  fuzzer_iflags="-fsanitize=${fuzzer_sanitizers},fuzzer-no-link"
+  AC_MSG_CHECKING([whether ${CC} accepts ${fuzzer_iflags}])
+  cat > conftest.c <<_ACEOF
+int main(void){ return 0; }
+_ACEOF
+  if ${CC} ${fuzzer_iflags} ${CFLAGS} conftest.c -o conftest${ac_exeext} >&AS_MESSAGE_LOG_FD 2>&1; then
+    AC_MSG_RESULT([yes])
+    CC="${CC} ${fuzzer_iflags}"
+    CFLAGS="${CFLAGS} -g -O1 -fno-omit-frame-pointer"
+  else
+    AC_MSG_RESULT([no])
+    AC_MSG_ERROR([--with-fuzzer-instrumentation requires a clang with libFuzzer support (-fsanitize=fuzzer); on macOS set CC to the Homebrew LLVM clang (e.g. CC=/opt/homebrew/opt/llvm/bin/clang), not Apple clang])
+  fi
+  rm -f conftest.c conftest${ac_exeext}
+fi
 
 dnl echo "---- initial CC = ${CC}"
 CC_save=${CC}

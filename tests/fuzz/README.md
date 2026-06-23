@@ -61,31 +61,48 @@ The current targets:
 Prerequisites: a clang with libFuzzer (`-fsanitize=fuzzer`; on macOS use
 the LLVM clang from `brew install llvm`, not Apple clang).
 
-### Build R as a linkable library
+### Build an instrumented R
 
-The harness links against `libR`, so R must be built with
-`--enable-R-shlib` (shared `libR`) or `--enable-R-static-lib` (static
-`libR.a`).  `R_HOME` may point at either an installed R or an uninstalled
-build tree; only `$R_HOME/include` and `$R_HOME/lib` are used, so
-`make install` is not required.
-
-For coverage-guided fuzzing to do anything useful, **R itself must be
-instrumented** -- instrumenting only the harness is not enough (see "Why
-R must be instrumented" below).  Configure R with the same sanitizer and
-coverage flags the harness uses:
+The harness links against `libR`, and for coverage-guided fuzzing to do
+anything useful **R itself must be instrumented** -- instrumenting only
+the harness is not enough (see "Why R must be instrumented" below).  The
+simplest way is the `--with-fuzzer-instrumentation` configure flag:
 
 ```sh
 cd /path/to/R          # the R source tree
-CC="clang -fsanitize=address,fuzzer-no-link" \
-CFLAGS="-g -O1 -fno-omit-frame-pointer" \
-    ./configure --enable-R-shlib
+CC=clang ./configure --with-fuzzer-instrumentation
 make
 ```
 
-Recommended flags, and why:
+The flag folds `-fsanitize=address,fuzzer-no-link` into `CC` and
+`-g -O1 -fno-omit-frame-pointer` into `CFLAGS`, records them in
+`etc/Makeconf`, and selects a **static `libR.a`** (recommended for
+instrumented builds -- it makes the fuzz binaries self-contained, and on
+macOS gives a linkable `libR` where `--enable-R-shlib` is off by
+default).  Because `build.sh` reads its flags back from that same
+`Makeconf` (`R CMD config`), the targets are then instrumented exactly
+like `libR` with nothing to repeat.
 
-- `-fsanitize=address` -- AddressSanitizer, the bug detector.  Keep it in
-  `CC` (not just `CFLAGS`) so it is also applied when `libR` is linked.
+It still needs a clang with libFuzzer: pass `CC` accordingly.  On macOS
+that is the Homebrew LLVM clang, not Apple clang (which ships neither
+libFuzzer nor the coverage runtime):
+
+```sh
+CC=/opt/homebrew/opt/llvm/bin/clang \
+    ./configure --with-fuzzer-instrumentation
+```
+
+To change the sanitizer set, give it as the flag's value -- e.g.
+`--with-fuzzer-instrumentation=address,undefined` to add UBSAN (off by
+default because R's integer/float cast paths emit a high volume of
+reports).  The set is recorded in `Makeconf`, so the harness stays in
+sync automatically.
+
+What the flags are for:
+
+- `-fsanitize=address` -- AddressSanitizer, the bug detector.  Folded
+  into `CC` (not just `CFLAGS`) so it is also applied when `libR` is
+  linked.
 - `-fsanitize=fuzzer-no-link` -- the SanitizerCoverage instrumentation
   that feeds libFuzzer its coverage signal, *without* adding a fuzzer
   `main` (that comes from the harness's `-fsanitize=fuzzer`).  This is
@@ -94,32 +111,46 @@ Recommended flags, and why:
 - `-O1` -- the AddressSanitizer-recommended optimization level: `-O0`
   fuzzes too slowly to be useful, while `-O2`/`-O3` build more slowly,
   give noisier traces, and can fold away the undefined behaviour UBSAN
-  would otherwise see.  This matches the harness (`build.sh` uses
-  `-g -O1`).
+  would otherwise see.
 - `-fno-omit-frame-pointer` -- fast, reliable stack unwinding for the
   sanitizer traces.
 
-On macOS add `CC=/opt/homebrew/opt/llvm/bin/clang ...` (Apple clang ships
-neither libFuzzer nor the coverage runtime).  Keep the sanitizer set
-consistent between this R build and `build.sh`: if you add `undefined`
-(UBSAN) to one, add it to both.  For a fully instrumented R you can also
-set `CXX` (and `FC` with a sanitizer-capable Fortran); the current
-targets are all C, so `CC`/`CFLAGS` already cover the code they reach.
+The flag instruments C only (`CC`/`CFLAGS`); the current targets all
+reach C code, so that covers what they exercise.  `R_HOME` may point at
+either an installed R or an uninstalled build tree; only `$R_HOME/include`
+and `$R_HOME/lib` are used, so `make install` is not required.
 
-A plain `./configure --enable-R-shlib` with no sanitizer flags still
-links and runs as a quick smoke test, but with an uninstrumented `libR`
-libFuzzer gets no coverage signal and ASan cannot see bugs inside R's own
-code.
+#### Doing it by hand
+
+`--with-fuzzer-instrumentation` is a convenience; you can equivalently set
+the compiler and flags yourself, which is what OSS-Fuzz does:
+
+```sh
+CC="clang -fsanitize=address,fuzzer-no-link" \
+CFLAGS="-g -O1 -fno-omit-frame-pointer" \
+    ./configure --enable-R-static-lib   # or --enable-R-shlib
+make
+```
+
+Either way, keep the sanitizer set consistent between this R build and
+`build.sh`: if you add `undefined` (UBSAN) to one, add it to both.
+
+A plain `./configure --enable-R-shlib` (or `--enable-R-static-lib`) with
+no sanitizer flags still links and runs as a quick smoke test, but with
+an uninstrumented `libR` libFuzzer gets no coverage signal and ASan
+cannot see bugs inside R's own code.
 
 ### Build the fuzz targets and run
 
-```sh
-cd tests/fuzz
+`configure` stamps `build.sh` into the build tree's `tests/fuzz` (from the
+tracked `build.sh.in` template), with the source path baked in.  Run it
+from there and it needs no environment: it links against the R built two
+directories up and reads its harness sources (`fuzzer.c`, dictionaries,
+corpora) from the source tree.
 
-# build (defaults to $R_HOME/tests/fuzz, i.e. under the R build tree;
-# set OUT=<dir> to write elsewhere)
-R_HOME=/path/to/R ./build.sh
-cd /path/to/R/tests/fuzz
+```sh
+cd /path/to/R-build/tests/fuzz
+./build.sh
 
 # fuzz a target -- dictionary and seed corpus are supplied automatically
 ./fuzz parse
