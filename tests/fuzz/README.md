@@ -219,9 +219,24 @@ For a real, indefinite, crash-tolerant run use the `campaign` helper:
 It launches N independent `fuzz` workers that share the one corpus
 (libFuzzer cross-pollinates new inputs via `-reload`) and restarts any
 worker that exits, so a crash is recorded and fuzzing continues rather
-than stopping at the first finding.  Crash-inducing inputs
-(`crash-*`/`oom-*`/`timeout-*`) and a per-worker log land in
-`findings/<target>/`.
+than stopping at the first finding.  Everything lands in
+`findings/<target>/`: the crash-inducing inputs themselves
+(`crash-*`/`oom-*`/`timeout-*`), a per-worker log, and -- for each crash --
+a self-contained Markdown report `<artifact>.md`.
+
+When a worker run crashes, the campaign prints a notice to the terminal
+(the target, which sanitizer fired, and the input/report paths) and writes
+`findings/<target>/<artifact>.md`, with sections for:
+
+- the reproduce command (replaying the saved input through the target),
+- the sanitizer stack trace (the `ERROR:`...`SUMMARY:` block),
+- a hexdump of the crashing input,
+- a base64 copy of the input plus a one-liner to decode and replay it, so
+  the report reproduces the crash even detached from the artifact file,
+- the tail of the run log (covers OOM/timeout and any non-sanitizer exit).
+
+The report is keyed on the artifact name, so the same crash found by
+several workers is written -- and announced -- once.
 
 This deliberately does **not** use libFuzzer's own `-fork`/`-jobs`: those
 spawn their workers through `/bin/sh`, and on macOS SIP strips the
@@ -231,8 +246,9 @@ that, so the same campaign works on Linux and macOS.  On Linux you may
 still use `./fuzz <target> -jobs=N -workers=N` if you prefer libFuzzer's
 built-in parallelism.
 
-To get a symbolized report for a saved finding, replay it through the
-target:
+To reproduce a saved finding by hand (a symbolized trace), replay it
+through the target -- this is the command the report's "Reproduce" section
+gives you:
 
 ```sh
 ./fuzz grep findings/grep/crash-XXXX 2>&1 | sed -n '/ERROR: /,/SUMMARY/p'
