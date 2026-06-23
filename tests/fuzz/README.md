@@ -116,9 +116,10 @@ code.
 ```sh
 cd tests/fuzz
 
-# build into a directory of your choice (defaults to this one)
-R_HOME=/path/to/R OUT=/tmp/rfuzz ./build.sh
-cd /tmp/rfuzz
+# build (defaults to $R_HOME/tests/fuzz, i.e. under the R build tree;
+# set OUT=<dir> to write elsewhere)
+R_HOME=/path/to/R ./build.sh
+cd /path/to/R/tests/fuzz
 
 # fuzz a target -- dictionary and seed corpus are supplied automatically
 ./fuzz parse
@@ -131,12 +132,18 @@ cd /tmp/rfuzz
 ./fuzz parse -max_total_time=60
 ```
 
-`build.sh` makes the output directory a self-contained bundle: each
-target's binary, its `<target>.dict`, its `corpus/<target>/` (the seed
-corpus, copied from the tree), and the `fuzz` launcher all live there.
-The launcher resolves them relative to its own location, so the bundle
-can be moved or run from anywhere (only R itself is referenced by an
-absolute path).
+The output directory defaults to `$R_HOME/tests/fuzz` -- under the R build
+tree, beside the `libR` the targets link against, and (for the usual
+out-of-tree R build) outside the source checkout.  An in-tree R build
+puts it back in the source `tests/fuzz`, where a `.gitignore` keeps the
+artifacts out of git.  Override with `OUT`.
+
+`build.sh` makes that directory a self-contained bundle: each target's
+binary, its `<target>.dict`, its `corpus/<target>/` (the seed corpus,
+copied from the tree), and the `fuzz` launcher all live there.  The
+launcher resolves them relative to its own location, so the bundle can be
+moved or run from anywhere (only R itself is referenced by an absolute
+path).
 
 `./fuzz <target>` runs the target with that dictionary and corpus, so no
 paths are needed.  Newly discovered inputs accumulate in

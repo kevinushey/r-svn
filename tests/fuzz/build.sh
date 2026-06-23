@@ -58,7 +58,6 @@
 set -eu
 
 here=$(cd "$(dirname "$0")" && pwd)
-out=${OUT:-$here}
 
 # Locate R and a binary to query its build flags with.
 if [ -n "${R_HOME:-}" ]; then
@@ -72,6 +71,13 @@ fi
 
 rbin="$rhome/bin/R"
 [ -x "$rbin" ] || rbin=R
+
+# Default output goes under the R build directory it links against, at
+# its tests/fuzz, so the targets sit beside that libR and outside the
+# source checkout (an out-of-tree build) -- nothing to ignore.  An in-tree
+# R build puts it back in the source tests/fuzz (see .gitignore there).
+# OUT overrides this (OSS-Fuzz sets it).
+out=${OUT:-$rhome/tests/fuzz}
 
 # Ask R itself for its include and library directories rather than
 # assuming the layout under R_HOME.
