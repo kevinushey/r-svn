@@ -3240,6 +3240,16 @@ AC_CONFIG_FILES(
 AC_CONFIG_COMMANDS([stamp-h],
 [test -f src/include/stamp-h || echo timestamp > src/include/stamp-h])
 
+## Stamp the fuzz build helper into the build tree's tests/fuzz, with the
+## source path baked in, so it can be run there with no R_HOME -- it links
+## against the R built here (two directories up) and reads its harness sources
+## (fuzzer.c, dictionaries, corpora) from the source tree.  See tests/fuzz.
+AC_CONFIG_COMMANDS([tests/fuzz/build.sh],
+[r_fuzz_srcdir=`cd "$srcdir/tests/fuzz" && pwd`
+mkdir -p tests/fuzz
+sed "s|@R_FUZZ_SRCDIR@|$r_fuzz_srcdir|g" "$srcdir/tests/fuzz/build.sh.in" > tests/fuzz/build.sh
+chmod +x tests/fuzz/build.sh])
+
 ### now reset flags
 CPPFLAGS=${CPPFLAGS_KEEP}
 CFLAGS=${CFLAGS_KEEP}

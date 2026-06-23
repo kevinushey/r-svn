@@ -36,11 +36,16 @@
 # come from how R itself was configured.  R records its build flags in
 # etc/Makeconf, and we read them back with `R CMD config`, so the fuzz
 # targets are compiled with the same flags as libR and the two stay in
-# sync.  Build R for fuzzing with e.g.
+# sync.  Build R for fuzzing with the convenience configure flag
+#
+#   CC=clang ./configure --with-fuzzer-instrumentation   # implies static libR
+#
+# (which folds in -fsanitize=address,fuzzer-no-link / -g -O1 ... and selects
+# a static libR), or equivalently by hand with
 #
 #   export CC="clang -fsanitize=address,fuzzer-no-link"
 #   export CFLAGS="-g -O1 -fno-omit-frame-pointer"
-#   ./configure --enable-R-shlib
+#   ./configure --enable-R-static-lib
 #
 # See README.md.
 #
@@ -60,13 +65,28 @@ set -eu
 
 here=$(cd "$(dirname "$0")" && pwd)
 
-# Locate R and a binary to query its build flags with.
+# Harness sources (fuzzer.c, fuzz_tests.txt, dictionaries/, <target>_corpus/).
+# configure stamps a copy of this script into the build tree's tests/fuzz with
+# the token below replaced by the source tests/fuzz path; run straight from
+# the source tree (the .in template) it stays a token and we fall back to this
+# script's own directory.  Either way the sources are read from $src.
+src='@R_FUZZ_SRCDIR@'
+case $src in
+    @*) src=$here ;;
+esac
+
+# Locate R and a binary to query its build flags with.  An explicit R_HOME
+# wins; otherwise infer R two directories up when one has been built there --
+# this is where configure stamps the script (the build tree's tests/fuzz) and
+# also where it sits for an in-tree build; finally fall back to R on PATH.
 if [ -n "${R_HOME:-}" ]; then
     rhome=$R_HOME
+elif [ -x "$here/../../bin/R" ]; then
+    rhome=$(cd "$here/../.." && pwd)
 elif command -v R >/dev/null 2>&1; then
     rhome=$(R RHOME)
 else
-    echo "error: set R_HOME or put R on PATH" >&2
+    echo "error: set R_HOME, put R on PATH, or run from a built R tree" >&2
     exit 1
 fi
 
@@ -141,7 +161,7 @@ while read -r target; do
     echo "building $target ..."
     # shellcheck disable=SC2086
     $CC $cflags -D_R_FUZZ_ONE -D"_R_FUZZ_$target" \
-        "$here/fuzzer.c" -o "$out/$target" \
+        "$src/fuzzer.c" -o "$out/$target" \
         $ldflags
 
     # Stage the target's data beside its binary so the output directory is
@@ -151,19 +171,19 @@ while read -r target; do
     # while locally we copy the seeds into a writable working corpus the
     # launcher fuzzes against (new finds accumulate there; the tracked
     # seeds in the source tree are never touched).
-    if [ -f "$here/dictionaries/$target.dict" ]; then
-        cp "$here/dictionaries/$target.dict" "$out/$target.dict"
+    if [ -f "$src/dictionaries/$target.dict" ]; then
+        cp "$src/dictionaries/$target.dict" "$out/$target.dict"
     fi
-    if [ -d "$here/${target}_corpus" ]; then
+    if [ -d "$src/${target}_corpus" ]; then
         if [ -n "${LIB_FUZZING_ENGINE:-}" ]; then
             rm -f "$out/${target}_seed_corpus.zip"
-            (cd "$here/${target}_corpus" && zip -q -r "$out/${target}_seed_corpus.zip" .)
+            (cd "$src/${target}_corpus" && zip -q -r "$out/${target}_seed_corpus.zip" .)
         else
             mkdir -p "$out/corpus/$target"
-            cp -R "$here/${target}_corpus/." "$out/corpus/$target/"
+            cp -R "$src/${target}_corpus/." "$out/corpus/$target/"
         fi
     fi
-done < "$here/fuzz_tests.txt"
+done < "$src/fuzz_tests.txt"
 
 # Generate the 'fuzz' launcher.  Everything it needs except R itself lives
 # in this same directory (binary, <target>.dict, corpus/<target>), so it

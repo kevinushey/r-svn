@@ -14,8 +14,10 @@ and nothing here is referenced by R's build system, so a normal `make` /
 ```
 fuzzer.c                 all fuzz targets + the libFuzzer entry points
 fuzz_tests.txt           manifest: one target name per line
-build.sh                 build each target against an installed R; also
-                         emits the 'fuzz' launcher
+build.sh.in              template for build.sh: builds each target against R
+                         and emits the 'fuzz'/'campaign' launchers.  configure
+                         stamps it into the build tree's tests/fuzz as build.sh
+                         with the source path baked in.
 dictionaries/            per-target token dictionaries (<name>.dict)
 <name>_corpus/           per-target seed corpus
 ```
@@ -163,11 +165,20 @@ cd /path/to/R-build/tests/fuzz
 ./fuzz parse -max_total_time=60
 ```
 
+(For an in-tree build, build tree and source tree coincide, so the
+generated `build.sh` lands beside `build.sh.in` in the source `tests/fuzz`;
+`.gitignore` keeps it, and the build artifacts, out of git.)
+
+To build against an R that this checkout did not configure -- an installed
+R, or to drive the build by hand (as OSS-Fuzz does) -- run the template
+directly and point it at that R with `R_HOME` (or have `R` on `PATH`):
+
+```sh
+R_HOME=/path/to/R sh tests/fuzz/build.sh.in
+```
+
 The output directory defaults to `$R_HOME/tests/fuzz` -- under the R build
-tree, beside the `libR` the targets link against, and (for the usual
-out-of-tree R build) outside the source checkout.  An in-tree R build
-puts it back in the source `tests/fuzz`, where a `.gitignore` keeps the
-artifacts out of git.  Override with `OUT`.
+tree, beside the `libR` the targets link against.  Override with `OUT`.
 
 `build.sh` makes that directory a self-contained bundle: each target's
 binary, its `<target>.dict`, its `corpus/<target>/` (the seed corpus,
@@ -183,9 +194,12 @@ cold -- and because that corpus is the build's own copy, fuzzing never
 touches the checked-in seeds in the source tree.  Passing `-dict=` or any
 positional file/directory argument overrides the corresponding default.
 
-`R_HOME` is only needed by `build.sh`, to locate the R to build against.
-At run time the targets need no environment setup: `build.sh` bakes the
-build's `R_HOME` into each binary, and the `fuzz` launcher puts R's
+`R_HOME` is only ever consulted by `build.sh`, to locate the R to build
+against -- and the generated `build.sh` already knows it (the R two
+directories up), so you only set `R_HOME` when running the `build.sh.in`
+template against some other R.  At run time the targets need no
+environment setup: `build.sh` bakes the build's `R_HOME` into each binary,
+and the `fuzz` launcher puts R's
 private libraries (`libRblas`, ...) on the loader path before exec --
 something that on macOS must happen before the process starts, so it
 cannot be baked into the binary.  (On ELF the rpath alone resolves those
@@ -267,14 +281,18 @@ binary per name.  The OSS-Fuzz project's `build.sh` (which lives in the
 oss-fuzz repository, not here) builds R first -- preferably as a static
 library (`--enable-R-static-lib`) so the fuzz binaries are
 self-contained -- then compiles each target with the project's
-`$CC`/`$CFLAGS`/`$LIB_FUZZING_ENGINE`, e.g. by invoking this `build.sh`.
+`$CC`/`$CFLAGS`/`$LIB_FUZZING_ENGINE`.  It can invoke either the
+`build.sh` that R's `configure` generated in the build tree or the
+`build.sh.in` template directly (the source path falls back to the
+script's own directory when the template is run unsubstituted); either
+reads `$CC`/`$CFLAGS`/`$OUT`/`$LIB_FUZZING_ENGINE` from the environment.
 
-When `LIB_FUZZING_ENGINE` is set (the OSS-Fuzz case), `build.sh` also
+When `LIB_FUZZING_ENGINE` is set (the OSS-Fuzz case), the script also
 stages each target's dictionary and seed corpus beside its binary in
 `$OUT` under the names ClusterFuzz expects -- `<target>.dict` (applied
 automatically) and `<target>_seed_corpus.zip` -- and skips the local
 `fuzz` launcher.  So the oss-fuzz `build.sh` only has to build R and call
-this script.
+it.
 
 ## Relationship to AFL++
 

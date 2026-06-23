@@ -60904,6 +60904,9 @@ ac_config_files="$ac_config_files Makeconf Makefile doc/Makefile doc/html/Makefi
 ac_config_commands="$ac_config_commands stamp-h"
 
 
+ac_config_commands="$ac_config_commands tests/fuzz/build.sh"
+
+
 ### now reset flags
 CPPFLAGS=${CPPFLAGS_KEEP}
 CFLAGS=${CFLAGS_KEEP}
@@ -62296,6 +62299,7 @@ do
     "tests/Examples/Makefile") CONFIG_FILES="$CONFIG_FILES tests/Examples/Makefile" ;;
     "tools/Makefile") CONFIG_FILES="$CONFIG_FILES tools/Makefile" ;;
     "stamp-h") CONFIG_COMMANDS="$CONFIG_COMMANDS stamp-h" ;;
+    "tests/fuzz/build.sh") CONFIG_COMMANDS="$CONFIG_COMMANDS tests/fuzz/build.sh" ;;
 
   *) as_fn_error $? "invalid argument: '$ac_config_target'" "$LINENO" 5;;
   esac
@@ -63761,6 +63765,10 @@ _LT_EOF
 
  ;;
     "stamp-h":C) test -f src/include/stamp-h || echo timestamp > src/include/stamp-h ;;
+    "tests/fuzz/build.sh":C) r_fuzz_srcdir=`cd "$srcdir/tests/fuzz" && pwd`
+mkdir -p tests/fuzz
+sed "s|@R_FUZZ_SRCDIR@|$r_fuzz_srcdir|g" "$srcdir/tests/fuzz/build.sh.in" > tests/fuzz/build.sh
+chmod +x tests/fuzz/build.sh ;;
 
   esac
 done # for ac_tag
