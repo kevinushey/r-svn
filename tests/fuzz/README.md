@@ -211,10 +211,16 @@ everywhere.)
 For a real, indefinite, crash-tolerant run use the `campaign` helper:
 
 ```sh
-./campaign parse        # 4 workers (default)
-./campaign grep 8       # 8 workers
-                        # Ctrl-C to stop
+./campaign parse                          # 4 workers (default)
+./campaign grep 8                         # 8 workers
+./campaign unserialize -rss_limit_mb=0    # extra libFuzzer flags pass through
+./campaign dcf 8 -max_len=4096            # workers, then flags
+                                          # Ctrl-C to stop
 ```
+
+The optional worker count is consumed only when the second argument is
+numeric, so a leading libFuzzer flag is not mistaken for it; everything
+after is forwarded to each worker (as `./fuzz` already does).
 
 It launches N independent `fuzz` workers that share the one corpus
 (libFuzzer cross-pollinates new inputs via `-reload`) and restarts any
