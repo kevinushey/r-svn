@@ -11,8 +11,8 @@ nn  <- as.bytes(c("1", "2"), 8L, "unsigned", na = FALSE)
 
 ### type identity
 
-stopifnot(is.fixedwidth(u), is.bytes(u), is.bytes(op),
-	  !is.fixedwidth(1:3), !is.bytes(1:3), !is.raw(u),
+stopifnot(is.bytes(u), is.bytes(u), is.bytes(op),
+	  !is.bytes(1:3), !is.bytes(1:3), !is.raw(u),
 	  typeof(u) == "bytes", typeof(s) == "bytes", typeof(op) == "bytes",
 	  storage.mode(u) == "uint64", storage.mode(s) == "int64",
 	  storage.mode(op) == "bytes2",
@@ -126,7 +126,7 @@ mi <- c(1L, 1L, 2L, 2L); dim(mi) <- c(2L, 2L)
 stopifnot(nrow(unique(m)) == nrow(unique(mi)),
 	  identical(duplicated(m), duplicated(mi)),
 	  anyDuplicated(m) == anyDuplicated(mi),
-	  length(asplit(m, 1L)) == 2L, is.fixedwidth(asplit(m, 1L)[[1L]]))
+	  length(asplit(m, 1L)) == 2L, is.bytes(asplit(m, 1L)[[1L]]))
 d <- u[c(1, 2, 1, 2)]; dim(d) <- c(2L, 2L)
 stopifnot(nrow(unique(d)) == 2L)
 
@@ -152,7 +152,7 @@ stopifnot(inherits(tryCatch(c(u, as.bytes("1", 4L, "unsigned")),
 
 for (e in list(bytes(0L, 8L, "unsigned"), bytes(0L, 4L, "opaque"),
 	       bytes(0L, 8L, "signed", na = FALSE))) {
-    stopifnot(is.fixedwidth(e), length(e) == 0L,
+    stopifnot(is.bytes(e), length(e) == 0L,
 	      identical(unique(e), e), length(duplicated(e)) == 0L,
 	      ## print() names the type it printed, as dput() does; "bytes(0)"
 	      ## would be a valid call producing a different object
@@ -172,9 +172,9 @@ stopifnot(identical(as.integer(u), 1:3),
 	  ## as.logical is "any bit set", which needs no reading of the
 	  ## bytes as a number and so works for the opaque kind too
 	  identical(as.logical(op), c(TRUE, TRUE)),
-	  length(as.expression(u)) == 3L, is.fixedwidth(as.expression(u)[[1L]]),
-	  length(as.list(u)) == 3L, is.fixedwidth(as.list(u)[[1L]]),
-	  length(as.pairlist(u)) == 3L, is.fixedwidth(as.pairlist(u)[[1L]]))
+	  length(as.expression(u)) == 3L, is.bytes(as.expression(u)[[1L]]),
+	  length(as.list(u)) == 3L, is.bytes(as.list(u)[[1L]]),
+	  length(as.pairlist(u)) == 3L, is.bytes(as.pairlist(u)[[1L]]))
 
 ## the opaque kind has no numeric reading, and says so rather than
 ## inventing one
@@ -387,11 +387,11 @@ stopifnot(identical(vector("uint64", 2L), bytes(2L, 8L, "unsigned")),
 
 x <- 1:3
 storage.mode(x) <- "uint64"
-stopifnot(is.fixedwidth(x), storage.mode(x) == "uint64")
+stopifnot(is.bytes(x), storage.mode(x) == "uint64")
 
 x <- 1:3
 mode(x) <- "uint64"			# no as.uint64(): goes to storage.mode<-
-stopifnot(is.fixedwidth(x), storage.mode(x) == "uint64")
+stopifnot(is.bytes(x), storage.mode(x) == "uint64")
 
 x <- u
 mode(x) <- storage.mode(x)		# must be a no-op, not a conversion
@@ -440,7 +440,7 @@ stopifnot(is.object(o), identical(class(o), "myclass"))
 z <- as.bytes(1:3, 8L, "unsigned"); z[1] <- list(1)
 stopifnot(is.list(z), length(z) == 3L)
 z <- NULL; z[1] <- as.bytes("7", 8L, "unsigned")
-stopifnot(is.fixedwidth(z), length(z) == 1L, as.character(z) == "7")
+stopifnot(is.bytes(z), length(z) == 1L, as.character(z) == "7")
 
 ### raising the serialization version must not cost the file
 

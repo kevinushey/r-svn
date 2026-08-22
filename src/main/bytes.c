@@ -985,12 +985,6 @@ attribute_hidden SEXP do_bytesis(SEXP call, SEXP op, SEXP args, SEXP env)
     return ScalarLogical(TYPEOF(CAR(args)) == BYTESXP);
 }
 
-attribute_hidden SEXP do_bytesisfixed(SEXP call, SEXP op, SEXP args, SEXP env)
-{
-    checkArity(op, args);
-    return ScalarLogical(TYPEOF(CAR(args)) == BYTESXP);
-}
-
 /* Nothing to recycle from: the copies below stride the source by the
    element width, so a zero-length one would read w bytes past the end
    of its payload for every element written.  Rf_copyVector() and

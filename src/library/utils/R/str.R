@@ -431,7 +431,7 @@ str.default <-
 		mod <- substr(mode(object), 1, 4)
 		## Report fixed-width vectors by their semantic type;
 		## storage.mode() carries both the width and the kind.
-		if(is.fixedwidth(object)) mod <- storage.mode(object)
+		if(is.bytes(object)) mod <- storage.mode(object)
 		else if(mod == "nume")
 		    mod <- if(is.integer(object)) "int" else "num"
 		else if(mod == "char") { mod <- "chr"; char.like <- TRUE }
@@ -567,7 +567,7 @@ str.default <-
 	} else if(is.logical(object)) {
 	    v.len <- 1.5 * v.len # was '3' originally (but S prints 'T' 'F' ..)
 	    format.fun <- formatNum
-	} else if(is.fixedwidth(object)) {
+	} else if(is.bytes(object)) {
 	    ## Numeric fixed-width vectors are not represented by REALSXP or
 	    ## INTSXP, so use their exact character representation here.
 	    format.fun <- as.character

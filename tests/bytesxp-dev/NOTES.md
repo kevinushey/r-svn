@@ -45,7 +45,7 @@ All variants share the structural type reported by `typeof()`:
 | signed | `"int64"` | `"numeric"` | `"int64"` |
 
 For every row, `typeof(x)` is `"bytes"`, and both `is.bytes(x)` and
-`is.fixedwidth(x)` are true. `bytesKind()` or `is.numeric()` separates
+`is.bytes(x)` are true. `bytesKind()` or `is.numeric()` separates
 opaque and numeric values.
 
 The detailed storage-mode name contains the kind and width but not the

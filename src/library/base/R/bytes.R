@@ -52,7 +52,6 @@ bytesKind <- function(x) .Internal(bytesKind(x))
 bytesWidth <- function(x) .Internal(bytesWidth(x))
 
 is.bytes <- function(x) .Internal(is.bytes(x))
-is.fixedwidth <- function(x) .Internal(is.fixedwidth(x))
 
 as.int8   <- function(x, na = TRUE) as.bytes(x,  1L, "signed",   na)
 as.uint8  <- function(x, na = TRUE) as.bytes(x,  1L, "unsigned", na)

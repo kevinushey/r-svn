@@ -293,7 +293,7 @@ parApply <- function(cl = NULL, X, MARGIN, FUN, ..., chunk.size = NULL)
         ## to use proper mode and dimension:
         ## The following is still a bit `hackish': use non-empty X
         ## a fixed-width vector stands in for its own type name; see vector()
-        newX <- array(vector(if(is.fixedwidth(X)) X else typeof(X), 1L),
+        newX <- array(vector(if(is.bytes(X)) X else typeof(X), 1L),
                       dim = c(prod(d.call), 1L))
         ans <- FUN(if(length(d.call) < 2L) newX[,1] else
                    array(newX[, 1L], d.call, dn.call), ...)

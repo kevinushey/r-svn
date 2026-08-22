@@ -195,7 +195,7 @@ function(file, header = FALSE, sep = "", quote = "\"'", dec = ".",
     for (i in which(!known & !is.na(colClasses) &
                     !(colClasses %in% c("NULL", "factor", "Date", "POSIXct")))) {
         proto <- tryCatch(vector(colClasses[i], 0L), error = function(e) NULL)
-        if (is.fixedwidth(proto)) {
+        if (is.bytes(proto)) {
             what[[i]] <- proto
             known[i] <- TRUE
         }

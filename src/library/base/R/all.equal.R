@@ -61,7 +61,7 @@ all.equal.default <- function(target, current, ..., check.class = TRUE)
 	       }
 	       else all.equal.list(target, current, ...))
     }
-    if(is.fixedwidth(target))
+    if(is.bytes(target))
 	return(all.equal.bytes(target, current, ...,
 			       check.class = check.class))
     msg <- switch (mode(target),
@@ -463,7 +463,7 @@ all.equal.bytes <-
     ## check.class says, since these are not comparable at all and
     ## all.equal() must describe a difference rather than stop().
     tt <- storage.mode(target)
-    ct <- if(is.fixedwidth(current)) storage.mode(current)
+    ct <- if(is.bytes(current)) storage.mode(current)
           else data.class(current)
     if(tt != ct)
 	return(paste0("target is ", tt, ", current is ", ct))

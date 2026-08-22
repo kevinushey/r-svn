@@ -53,7 +53,7 @@ tapply <- function (X, INDEX, FUN = NULL, ..., default = NA, simplify = TRUE)
 	    ans <- unlist(ans, recursive = FALSE, use.names = FALSE)
 	    if(is.na(default) && is.atomic(ans))
 		## a bytes vector stands in for its complete prototype
-		vector(if(is.fixedwidth(ans)) ans else typeof(ans))
+		vector(if(is.bytes(ans)) ans else typeof(ans))
 	    else default
 	} else vector("list", prod(extent)),
 	dim = extent, dimnames = namelist)

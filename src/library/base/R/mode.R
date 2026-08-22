@@ -39,7 +39,7 @@ mode <- function(x) {
 `mode<-` <- function(x, value)
 {
     if (storage.mode(x) == value) return(x)
-    if (is.fixedwidth(x) && mode(x) == value) return(x)
+    if (is.bytes(x) && mode(x) == value) return(x)
     if(is.factor(x)) stop("invalid to change the storage mode of a factor")
     ## A 'bytes' type is named by its width and kind (see
     ## R_bytesTypeFromName in src/main/bytes.c).  Plain "bytes" is also
@@ -62,7 +62,7 @@ mode <- function(x) {
 }
 
 storage.mode <- function(x) {
-    if(is.fixedwidth(x)) {
+    if(is.bytes(x)) {
 	w <- bytesWidth(x)
 	return(switch(bytesKind(x),
 		      opaque = paste0("bytes", w),

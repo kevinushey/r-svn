@@ -11,7 +11,6 @@
 \alias{bytesKind}
 \alias{bytesWidth}
 \alias{is.bytes}
-\alias{is.fixedwidth}
 \alias{as.int8}
 \alias{as.uint8}
 \alias{as.int16}
@@ -47,7 +46,6 @@ as.int128(x, na = TRUE)
 as.uint128(x, na = TRUE)
 
 is.bytes(x)
-is.fixedwidth(x)
 bytesWidth(x)
 bytesKind(x)
 bytesHasNA(x)
@@ -220,8 +218,8 @@ bytesRaw(x)
   the \code{as.*} family does, including when \code{x} already has the
   requested width and kind; \code{storage.mode<-} keeps them.
 
-  \code{is.bytes} and \code{is.fixedwidth} both test the shared
-  \code{BYTESXP} storage representation and therefore return
+  \code{is.bytes} tests the shared \code{BYTESXP} storage
+  representation, as \code{\link{typeof}} reports it, and is therefore
   \code{TRUE} for every kind.  Use \code{bytesKind} or
   \code{is.numeric} to distinguish opaque and numeric vectors.
   \code{bytesWidth} returns the element size in bytes, \code{bytesKind}
