@@ -17,7 +17,7 @@
  *  https://www.R-project.org/Licenses/
  *
  *
- *  BYTESXP: vectors of fixed-width opaque data.
+ *  BYTESXP: vectors of fixed-width data.
  *
  *  A 'bytes' vector holds n elements of w bytes each, where w is a
  *  per-vector property recorded in the sxpinfo gp field rather than
@@ -25,11 +25,11 @@
  *  that is the whole reason this is a distinct type rather than a
  *  flavour of RAWSXP, whose length is unavoidably a byte count.
  *
- *  The type is deliberately opaque.  Elements are compared and hashed
- *  as byte blocks and are never interpreted as numbers, so there is no
- *  coercion hierarchy to join and no arithmetic to define.  Every
- *  operation on the payload reduces to memcmp() or a byte hash over
- *  BYTEVEC_WIDTH(x) bytes.
+ *  An element may be an opaque byte string or a signed or unsigned
+ *  integer.  Opaque elements are compared and hashed as byte blocks;
+ *  numeric elements use value order and support exact fixed-width
+ *  arithmetic where implemented.  Defn.h records the representation
+ *  invariants shared by those operations.
  */
 
 #ifdef HAVE_CONFIG_H
@@ -889,15 +889,12 @@ Rboolean R_bytesIsNumeric(SEXP x)
     return TYPEOF(x) == BYTESXP && BYTEVEC_KIND(x) != BYTEVEC_OPAQUE;
 }
 
-/* is.bytes() is a semantic predicate: numeric fixed-width vectors are
-   integers at the R interface, while only opaque payloads are bytes. */
+/* is.bytes() follows typeof(): every BYTESXP has the shared structural
+   type, while mode(), is.numeric() and bytesKind() report its semantics. */
 attribute_hidden SEXP do_bytesis(SEXP call, SEXP op, SEXP args, SEXP env)
 {
     checkArity(op, args);
-
-    SEXP x = CAR(args);
-    return ScalarLogical(TYPEOF(x) == BYTESXP &&
-			 BYTEVEC_KIND(x) == BYTEVEC_OPAQUE);
+    return ScalarLogical(TYPEOF(CAR(args)) == BYTESXP);
 }
 
 attribute_hidden SEXP do_bytesisfixed(SEXP call, SEXP op, SEXP args, SEXP env)
@@ -1043,25 +1040,20 @@ const char *R_bytesEltRender(SEXP x, R_xlen_t i)
     return k == BYTEVEC_OPAQUE ? EncodeBytes(p, w) : R_bytesEltDecimal(p, w, k);
 }
 
-/* The R-level type name is derived from (kind, width) rather than from
-   the SEXPTYPE, so that a width-8 unsigned vector reports "uint64"
-   instead of "bytes".  R already does this for OBJSXP, which reports
-   "S4" or "object" depending on a gp bit (R_typeToChar in util.c).
-
-   Deriving it is what lets package code dispatch on what it is
-   actually holding -- switch(typeof(x), uint64 = ...) -- without the
-   type number lying to C code, which is the whole reason this is a
-   separate SEXPTYPE. */
-/* One permanent slot per (kind, width).  The name is a pure function of
-   those two, so it is materialized once and then handed out as a stable
-   pointer -- which is what type2char() does for every other type, only
-   its table is keyed by the SEXPTYPE and can hold just one row for this
-   one.  The width and kind live in the object's gp bits, which
-   type2char() never sees, hence a table of its own.
+/* storage.mode(), implicit classes and diagnostics name a fixed-width
+   vector by its (kind, width), while typeof() follows the SEXPTYPE and
+   reports the single structural type "bytes". */
+/* One permanent slot per (kind, width).  The detailed name is a pure
+   function of those two, so it is materialized once and then handed out
+   as a stable pointer -- which is what type2char() does for every other
+   type, only its table is keyed by the SEXPTYPE and can hold just one
+   row for this one.  The width and kind live in the object's gp bits,
+   which type2char() never sees, hence a table of its own.
 
    Keying it this way rather than cycling a few scratch buffers matters
-   because R_typeToChar() returns this, and several of R's messages
-   print two type names in one call -- "incompatible types (from %s to
+   because R_typeToChar() returns this for useful diagnostics, and
+   several of R's messages print two type names in one call --
+   "incompatible types (from %s to
    %s)" and vapply's mismatch report among them.  With shared scratch
    the second call would overwrite the first and both would print the
    same name, silently and only for this type.  Here every name has its

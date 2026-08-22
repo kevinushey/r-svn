@@ -45,8 +45,8 @@ mean(x, \dots)
   The method for \link{bytes} vectors of a numeric kind returns a
   double, as every \code{mean} in \R does, but forms it from an exact
   total: the values are accumulated at a width wider than the type and
-  converted once, so the answer agrees with \code{sum(x)/length(x)}
-  and is returned even where \code{\link{sum}} itself would overflow.
+  converted once.  It therefore uses the mathematical sum even where
+  the fixed-width result of \code{\link{sum}} would overflow.
   Only that final conversion and the division round, rather than every
   element in turn.  For the \code{"opaque"} kind, which has no numeric
   interpretation, it defers to the default method and hence returns
@@ -67,4 +67,3 @@ xm <- mean(x)
 c(xm, mean(x, trim = 0.10))
 }
 \keyword{univar}
-

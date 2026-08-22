@@ -23,9 +23,9 @@ mean.bytes <- function(x, trim = 0, na.rm = FALSE, ...)
     ## The numeric kinds are numbers, so a mean of them means something;
     ## the opaque kind falls through to the default, which warns and
     ## returns NA as it does for a factor.  The .Internal accumulates
-    ## the sum exactly and divides once, so mean(x) agrees with
-    ## sum(x)/length(x) -- per-element as.numeric() would round each
-    ## element above 2^53 before summing.
+    ## the sum exactly and divides once, even where a fixed-width sum()
+    ## would overflow.  Per-element as.numeric() would instead round
+    ## each value above 2^53 before summing.
     if(bytesKind(x) == "opaque")
         return(mean.default(x, trim = trim, na.rm = na.rm, ...))
     if(isTRUE(na.rm))

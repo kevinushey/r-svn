@@ -47,19 +47,19 @@
       (\code{BYTESXP}), whose elements are a fixed number of bytes wide,
       with the width and the interpretation (\code{"unsigned"},
       \code{"signed"} or \code{"opaque"}) properties of the vector rather
-      than of the type.  \code{typeof()} reports the derived name, so a
-      64-bit unsigned vector is \code{"uint64"} and sixteen opaque bytes
-      are \code{"bytes16"}.  Numeric kinds satisfy \code{is.numeric()},
-      have mode \code{"numeric"}, and promote to double when an operation
-      requires it, warning on actual precision loss; opaque values remain
-      nonnumeric bytes.  Mixed comparisons and matching use a double's
-      exact binary value rather than rounding the integer, and unit-step
-      sequences remain in the fixed-width type.  Created by
-      \code{bytes()}, \code{as.bytes()} and semantic constructors such
-      as \code{as.int64()} and \code{as.uint64()}, and by
-      \code{vector()}, \code{as.vector()}, \code{storage.mode<-},
-      \code{readBin()}, \code{scan()} and
-      \code{read.table()} through the type names; see \code{?bytes}.
+      than of the type.  \code{typeof()} reports the structural type
+      \code{"bytes"}; \code{storage.mode()} gives the detailed name, such
+      as \code{"uint64"} or \code{"bytes16"}.  Numeric kinds satisfy
+      \code{is.numeric()}, have mode \code{"numeric"}, and promote to
+      double when an operation requires it, warning on actual precision
+      loss; opaque values remain nonnumeric bytes.  Mixed comparisons
+      and matching use a double's exact binary value rather than rounding
+      the integer, and unit-step sequences remain in the fixed-width
+      type.  Created by \code{bytes()}, \code{as.bytes()} and semantic
+      constructors such as \code{as.int64()} and \code{as.uint64()}, and
+      by \code{vector()}, \code{as.vector()}, \code{storage.mode<-},
+      \code{readBin()}, \code{scan()} and \code{read.table()} through
+      detailed storage-mode names or prototypes; see \code{?bytes}.
       Arithmetic, comparison, bitwise operations, sorting, matching and
       serialization keep the full width, so a 64-bit identifier survives a
       round trip that a \code{double} would round.

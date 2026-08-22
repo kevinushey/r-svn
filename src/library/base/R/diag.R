@@ -23,7 +23,7 @@ diag <- function(x = 1, nrow, ncol, names = TRUE)
 	    (nargs() > 2L || any(names(match.call()) %in% c("nrow", "ncol"))))
             stop("'nrow' or 'ncol' cannot be specified when 'x' is a matrix")
 
-        ## a bytes vector stands in for its own type name; see vector()
+        ## a bytes vector stands in for its complete prototype; see vector()
         if((m <- min(dim(x))) == 0L)
             return(vector(if(is.fixedwidth(x)) x else typeof(x), 0L))
         ## NB: need double index to avoid overflows.

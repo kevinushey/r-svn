@@ -26,9 +26,9 @@ bitwShiftR(a, n)
 }
 \arguments{
   \item{a, b}{integer vectors; numeric vectors are coerced to integer
-    vectors.  \code{a} may also be a \code{\link{bytes}} vector, in
-    which case \code{b} must be one of the same width and kind, or (for
-    the numeric kinds) an integer vector.}
+    vectors.  Either may instead be a \code{\link{bytes}} vector.  The
+    other must then be one of the same width and kind or, for a numeric
+    kind, an integer vector.}
   \item{n}{non-negative integer vector of values up to 31, or up to one
     less than the number of bits in an element for a \code{bytes}
     vector.}
@@ -50,8 +50,9 @@ bitwShiftR(a, n)
   \code{na = FALSE} reserves nothing and can hold every bit pattern.
 }
 \value{
-  A vector of the same type as \code{a} and of length the longer of the
-  arguments, or zero length if one is zero-length.
+  A \code{bytes} vector of the same type as the fixed-width argument,
+  if there is one; otherwise an integer vector.  Its length is that of
+  the longer argument, or zero if either is zero-length.
 
   The output element is \code{NA} if an input is \code{NA} (after
   coercion) or an invalid shift.

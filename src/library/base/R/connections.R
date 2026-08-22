@@ -280,10 +280,11 @@ readBin <- function(con, what, n = 1L, size = NA_integer_, signed = TRUE,
     ## character vector that is not one of the names, since character(1)
     ## is a documented way to ask for strings.  A 'bytes' prototype is
     ## passed through whole, as it also says whether NA is representable,
-    ## which the type name does not.  The 'bytes' names join the list so
-    ## that readBin(con, "int64") does not fall through to typeof(), which
-    ## is "character", and silently read strings; a name of that shape but
-    ## an unsupported width is left for .Internal to reject.
+    ## which a storage-mode name does not.  The detailed 'bytes' names
+    ## join the list so that readBin(con, "int64") does not fall through
+    ## to typeof(), which is "character", and silently read strings; a
+    ## name of that shape but an unsupported width is left for .Internal
+    ## to reject.
     if(!(is.character(what) && length(what) == 1L && !is.na(what) &&
          (what %in% c("numeric", "double", "integer", "int", "logical",
                       "complex", "character", "raw") ||

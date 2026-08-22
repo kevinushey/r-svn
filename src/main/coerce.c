@@ -2141,9 +2141,7 @@ attribute_hidden SEXP do_typeof(SEXP call, SEXP op, SEXP args, SEXP rho)
     if(TYPEOF(CAR(args)) == OBJSXP && ! IS_S4_OBJECT(CAR(args)))
 	return mkString("object");
     else
-	return TYPEOF(CAR(args)) == BYTESXP
-	    ? mkString(R_bytesTypeName(CAR(args)))
-	    : type2rstr(TYPEOF(CAR(args)));
+	return type2rstr(TYPEOF(CAR(args)));
 }
 
 /* Define many of the <primitive> "is.xxx" functions :
@@ -2344,16 +2342,16 @@ attribute_hidden SEXP do_isvector(SEXP call, SEXP op, SEXP args, SEXP rho)
 	LOGICAL0(ans)[0] = isVector(x);
     }
     else if (streql(stype, "numeric")) {
-	LOGICAL0(ans)[0] = (isNumeric(x) && !isLogical(x));
+	LOGICAL0(ans)[0] = ((isNumeric(x) && !isLogical(x)) ||
+			    R_bytesIsNumeric(x));
     }
     /* So this allows any type, including undocumented ones such as
        "closure", but not aliases such as "name" and "function". */
     else if (streql(stype, R_typeToChar(x))) {
 	LOGICAL0(ans)[0] = 1;
     }
-    /* "bytes" is the mode of every width and kind, as "numeric" is the
-       mode of integer and double, so is.vector(x, mode(x)) has to hold
-       for this type too; R_typeToChar() gives the finer name */
+    /* "bytes" is the structural typeof() of every width and kind;
+       R_typeToChar() gives the finer storage-mode name used above. */
     else if (streql(stype, "bytes")) {
 	LOGICAL0(ans)[0] = (TYPEOF(x) == BYTESXP);
     }
@@ -3131,6 +3129,7 @@ static classType classTable[] = {
     { "integer",	INTSXP,	   true },
     { "double",		REALSXP,   true },
     { "raw",		RAWSXP,    true },
+    { "bytes",		BYTESXP,   false },
     { "complex",	CPLXSXP,   true },
     { "character",	STRSXP,	   true },
     { "expression",	EXPRSXP,   true },
@@ -3218,21 +3217,12 @@ static SEXP R_set_class(SEXP obj, SEXP value, SEXP call)
 	}
     }
 
-    /* A 'bytes' vector's implicit class is c("bytes16", "bytes") for
-       the opaque kind, or a semantic type such as "uint64" for a
-       numeric kind, so setting either back has to be the same no-op.
-       Without this the branches below install a class attribute and set
-       the object bit, and class(x) <- class(x) turns a bare vector into
-       an S3 one.
-
-       Only when there is no dim, though: R_data_class() gives a bytes
-       matrix c("matrix", "array") like any other, which leaves
-       c("uint64", "bytes") a class the caller means to keep. */
-    if(TYPEOF(obj) == BYTESXP && length(getAttrib(obj, R_DimSymbol)) == 0 &&
+    /* Derived 'bytes' classes are not represented in classTable. */
+    if(TYPEOF(obj) == BYTESXP && !isArray(obj) &&
        !strcmp(R_bytesTypeName(obj), valueString) &&
        (length(value) == 1 ||
 	(BYTEVEC_KIND(obj) == BYTEVEC_OPAQUE && length(value) == 2 &&
-	 !strcmp("bytes", CHAR(STRING_ELT(value, 1)))))) {
+	 streql(CHAR(STRING_ELT(value, 1)), "bytes")))) {
 	setAttrib(obj, R_ClassSymbol, R_NilValue);
 	if(IS_S4_OBJECT(obj))
 	    do_unsetS4(obj, value);

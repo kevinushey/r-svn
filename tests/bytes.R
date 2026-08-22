@@ -11,11 +11,15 @@ nn  <- as.bytes(c("1", "2"), 8L, "unsigned", na = FALSE)
 
 ### type identity
 
-stopifnot(is.fixedwidth(u), !is.bytes(u), is.bytes(op),
+stopifnot(is.fixedwidth(u), is.bytes(u), is.bytes(op),
 	  !is.fixedwidth(1:3), !is.bytes(1:3), !is.raw(u),
-	  typeof(u) == "uint64", typeof(s) == "int64", typeof(op) == "bytes2",
+	  typeof(u) == "bytes", typeof(s) == "bytes", typeof(op) == "bytes",
+	  storage.mode(u) == "uint64", storage.mode(s) == "int64",
+	  storage.mode(op) == "bytes2",
 	  identical(class(u), "uint64"), identical(class(op), c("bytes2", "bytes")),
-	  is.atomic(u), is.vector(u), is.numeric(u), !is.numeric(op),
+	  is.atomic(u), is.vector(u), is.vector(u, mode(u)),
+	  is.vector(u, storage.mode(u)), is.vector(op, mode(op)),
+	  is.vector(op, storage.mode(op)), is.numeric(u), !is.numeric(op),
 	  mode(u) == "numeric", mode(op) == "bytes",
 	  bytesWidth(u) == 8L, bytesKind(u) == "unsigned", bytesHasNA(u),
 	  !bytesHasNA(nn),
@@ -25,8 +29,14 @@ stopifnot(is.fixedwidth(u), !is.bytes(u), is.bytes(op),
 ## Public constructors describe the values; BYTESXP remains an internal
 ## storage detail shared with opaque payloads.
 stopifnot(identical(as.int64(c("1", "2", "3")), as.bytes(1:3, 8L, "signed")),
-	  typeof(as.uint128("1")) == "uint128",
-	  typeof(as.int8(-1L)) == "int8")
+	  storage.mode(as.uint128("1")) == "uint128",
+	  storage.mode(as.int8(-1L)) == "int8")
+
+## Assigning the structural typeof() back does not install an explicit
+## class, as for the other atomic types, and leaves the semantic implicit
+## class supplied by the width and kind unchanged.
+cu <- u; class(cu) <- typeof(cu)
+stopifnot(identical(cu, u), identical(class(cu), "uint64"))
 
 ## Compiled is.numeric() must agree with the primitive path.
 isnum <- compiler::cmpfun(function(x) is.numeric(x))
@@ -371,15 +381,17 @@ unlink(f)
 
 stopifnot(identical(vector("uint64", 2L), bytes(2L, 8L, "unsigned")),
 	  identical(as.vector(u, "int64"), as.bytes(c("1","2","3"), 8L, "signed")),
+	  inherits(tryCatch(vector("bytes", 2L), error = identity), "error"),
+	  identical(storage.mode(vector(u, 2L)), "uint64"),
 	  !bytesHasNA(vector(nn, 2L)))
 
 x <- 1:3
 storage.mode(x) <- "uint64"
-stopifnot(is.fixedwidth(x), typeof(x) == "uint64")
+stopifnot(is.fixedwidth(x), storage.mode(x) == "uint64")
 
 x <- 1:3
 mode(x) <- "uint64"			# no as.uint64(): goes to storage.mode<-
-stopifnot(is.fixedwidth(x), typeof(x) == "uint64")
+stopifnot(is.fixedwidth(x), storage.mode(x) == "uint64")
 
 x <- u
 mode(x) <- storage.mode(x)		# must be a no-op, not a conversion
@@ -603,6 +615,8 @@ y <- x; class(y) <- c(class(y), "bytes")
 stopifnot(identical(class(y), c("uint64", "bytes")), is.object(y))
 y <- matrix(x[1:4 %% 3 + 1], 2, 2); z <- y; class(z) <- class(z)
 stopifnot(identical(y, z))
+z <- y; class(z) <- typeof(z)
+stopifnot(identical(y, z), is.null(attr(z, "class")))
 ## and mode<- still converts away from the type by the ordinary route
 y <- x; mode(y) <- "character"
 stopifnot(identical(y, c("1", "2", "3")))
@@ -700,7 +714,8 @@ local({
     x <- 1:3; x[1:3] <- o
     stopifnot(identical(as.character(x), as.character(o)))
     x <- c(TRUE, FALSE, TRUE); x[1:3] <- o
-    stopifnot(identical(typeof(x), "bytes2"))
+    stopifnot(identical(typeof(x), "bytes"),
+	      identical(storage.mode(x), "bytes2"))
     x <- 1:3; x[3:1] <- o
     stopifnot(identical(as.character(x), rev(as.character(o))))
 
@@ -728,7 +743,7 @@ local({
     stopifnot(identical(prod(p), 6),
 	      identical(prod(p, 2L), 12),		# integer narrows in
 	      identical(prod(p, 2.5), 15),		# double promotes
-	      identical(typeof(sum(p)), "uint64"),	# sum keeps the type
+	      identical(storage.mode(sum(p)), "uint64"), # sum keeps the type
 	      identical(prod(1:3), 6))		# every other type unchanged
     for (bad in list(quote(prod(p, "a")),
 		     quote(prod(p, as.bytes("2", 4L, "unsigned"))),

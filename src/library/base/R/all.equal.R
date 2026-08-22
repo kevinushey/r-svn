@@ -462,8 +462,9 @@ all.equal.bytes <-
     ## anything reaches `!=` in all.equal.raw().  Reported whatever
     ## check.class says, since these are not comparable at all and
     ## all.equal() must describe a difference rather than stop().
-    tt <- typeof(target)
-    ct <- if(is.fixedwidth(current)) typeof(current) else data.class(current)
+    tt <- storage.mode(target)
+    ct <- if(is.fixedwidth(current)) storage.mode(current)
+          else data.class(current)
     if(tt != ct)
 	return(paste0("target is ", tt, ", current is ", ct))
     if(bytesHasNA(target) != bytesHasNA(current))

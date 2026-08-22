@@ -430,8 +430,8 @@ str.default <-
 		##-- atomic:   numeric{dbl|int} complex character logical raw
 		mod <- substr(mode(object), 1, 4)
 		## Report fixed-width vectors by their semantic type;
-		## typeof() carries both the width and the kind.
-		if(is.fixedwidth(object)) mod <- typeof(object)
+		## storage.mode() carries both the width and the kind.
+		if(is.fixedwidth(object)) mod <- storage.mode(object)
 		else if(mod == "nume")
 		    mod <- if(is.integer(object)) "int" else "num"
 		else if(mod == "char") { mod <- "chr"; char.like <- TRUE }

@@ -30,11 +30,13 @@ x8 <- as.bytes(as.raw(1:32), 8L)
 na16 <- as.bytes(NA, 16L)
 
 cat("== A. type identity ==\n")
-## the R-level type name is derived from (kind, width), the way
-## OBJSXP reports "S4" vs "object" from a gp bit
-ok("typeof names kind + width",  typeof(x) == "bytes16")
-ok("class follows typeof",       identical(class(x), c("bytes16", "bytes")))
+## typeof() names the SEXPTYPE; storage.mode() names its per-vector
+## width and kind, and class() supplies semantic dispatch.
+ok("typeof names the SEXPTYPE",  typeof(x) == "bytes")
+ok("class names the semantics",  identical(class(x), c("bytes16", "bytes")))
+ok("storage.mode is detailed",   storage.mode(x) == "bytes16")
 ok("is.fixedwidth",              is.fixedwidth(x) && !is.fixedwidth(raw(4)))
+ok("is.bytes follows typeof",    is.bytes(x) && !is.bytes(raw(4)))
 ok("is.atomic",                  is.atomic(x))
 ok("is.vector",                  is.vector(x))
 ok("not is.raw",                 !is.raw(x))
@@ -57,12 +59,9 @@ ok("width 0 rejected",           inherits(tryCatch(bytes(1L, 0L), error = identi
 ok("width 256 rejected",         inherits(tryCatch(bytes(1L, 256L), error = identity), "error"))
 ok("non-multiple length rejected",
                                  inherits(tryCatch(as.bytes(as.raw(1:5), 2L), error = identity), "error"))
-## allocVector(BYTESXP, n) itself is refused -- it cannot know the
-## width -- but the "bytes" *mode* name is answered with the family's
-## default, as "numeric" is; see vector() below and ?vector
-ok("mode \"bytes\" gets the default", { v <- .Internal(vector("bytes", 3L))
-                                   is.fixedwidth(v) && bytesWidth(v) == 1L &&
-                                   bytesKind(v) == "opaque" })
+## Neither allocVector(BYTESXP, n) nor vector("bytes", n) can know the
+## width and kind.  Both fail rather than silently choosing a type.
+probe("mode \"bytes\" is incomplete", .Internal(vector("bytes", 3L)))
 
 cat("\n== D. duplication, attributes, identity ==\n")
 d <- x; attr(d, "k") <- 1L
@@ -80,7 +79,8 @@ ok("no NA",                      identical(is.na(x), c(FALSE, FALSE)))
 ## is stored unchanged.  Only printing it fails (no format method yet).
 ok("data.frame: nrow from length", nrow(data.frame(x)) == 2L)
 ok("data.frame: column intact",  { c1 <- data.frame(x)$x
-                                   typeof(c1) == "bytes16" &&
+                                   typeof(c1) == "bytes" &&
+                                   storage.mode(c1) == "bytes16" &&
                                    bytesWidth(c1) == 16L &&
                                    identical(bytesRaw(c1), as.raw(1:32)) })
 
@@ -280,18 +280,21 @@ sg <- mk("signed", 8L, "0000000000000000", "ffffffffffffffff",
 ok("kind is reported",           identical(bytesKind(u), "unsigned") &&
                                  identical(bytesKind(sg), "signed") &&
                                  identical(bytesKind(x), "opaque"))
-ok("typeof of numeric kinds",    identical(c(typeof(u), typeof(sg)), c("uint64", "int64")))
-ok("typeof encodes width",       identical(
-     c(typeof(mk("signed", 16L, "01")), typeof(mk("unsigned", 4L, "01")),
-       typeof(mk("signed", 1L, "01")),  typeof(bytes(1L, 3L))),
+ok("typeof is structural",       identical(c(typeof(u), typeof(sg), typeof(x)),
+                                             rep("bytes", 3L)))
+ok("storage.mode encodes width", identical(
+     c(storage.mode(mk("signed", 16L, "01")),
+       storage.mode(mk("unsigned", 4L, "01")),
+       storage.mode(mk("signed", 1L, "01")), storage.mode(bytes(1L, 3L))),
      c("int128", "uint32", "int8", "bytes3")))
 ok("mode follows numeric semantics",
                                  identical(c(mode(u), mode(sg), mode(x)),
                                            c("numeric", "numeric", "bytes")))
 ok("storage.mode follows",       identical(storage.mode(u), "uint64"))
+ok("numeric kinds are bytes",    is.bytes(u) && is.bytes(sg))
 ok("is.integer stays honest",    !is.integer(u) && !is.integer(sg))
-ok("switch(typeof(x)) dispatches",
-                                 identical(switch(typeof(u), uint64 = "u", int64 = "i", "?"), "u"))
+ok("switch(typeof(x)) sees one type",
+                                 identical(switch(typeof(u), bytes = "b", "?"), "b"))
 ok("error messages name the type",
                                  grepl("uint64", tryCatch(as.integer(bytes(1L, 3L, "unsigned")),
                                                           error = conditionMessage,
@@ -407,7 +410,7 @@ ok("as.integer of NA",           is.na(as.integer(as.bytes(NA, 8L, "signed"))))
 ok("coercion from opaque errors",
                                  inherits(tryCatch(as.integer(x), error = identity), "error"))
 ok("cumsum stays in the type",   identical(as.character(cumsum(a)), c("1", "3", "6")) &&
-                                 typeof(cumsum(a)) == typeof(a))
+                                 storage.mode(cumsum(a)) == storage.mode(a))
 
 cat("\n== R. serialization ==\n")
 ## version 4: no older R can read this type, so a version 2 or 3 stream
@@ -750,18 +753,18 @@ rm(mean.uint64)
 ok("c() into a list is lossless",
                                  { r <- c(list(a = 1), u4)
                                    length(r) == 5L && identical(r$a, 1) &&
-                                   all(vapply(r[-1], typeof, "") == "uint64") &&
+                                   all(vapply(r[-1], storage.mode, "") == "uint64") &&
                                    identical(as.character(r[[5]]), "4") })
 ok("as.list splits by element",  { r <- as.list(u4)
                                    length(r) == 4L &&
-                                   all(vapply(r, typeof, "") == "uint64") &&
+                                   all(vapply(r, storage.mode, "") == "uint64") &&
                                    identical(vapply(r, as.character, ""),
                                              c("1","2","3","4")) })
 ok("as.list keeps names",        { v <- u4; names(v) <- letters[1:4]
                                    identical(names(as.list(v)), letters[1:4]) })
 ok("cbind into a list matrix",   { m <- cbind(list(1), u4[1:2])
                                    identical(dim(m), c(2L, 2L)) &&
-                                   identical(typeof(m[[2, 2]]), "uint64") })
+                                   identical(storage.mode(m[[2, 2]]), "uint64") })
 ok("a bytes cell prints",        { out <- capture.output(print(cbind(list(1), u4[1:2])))
                                    !any(grepl("?", out, fixed = TRUE)) })
 
@@ -789,7 +792,7 @@ ok("a 1-d array with dimnames prints",
 ## storing into a list is what df$key <- v goes through
 ok("[[<- into a list",           { l <- list(1, 2); l[[1]] <- u8; identical(l[[1]], u8) })
 ok("[<- into a list",            { l <- list(1, 2); l[1:2] <- u8
-                                   identical(typeof(l[[1]]), "uint64") })
+                                   identical(storage.mode(l[[1]]), "uint64") })
 ok("df$key <- v",                { d <- data.frame(i = 1:2); d$key <- u8
                                    identical(d$key, u8) })
 
@@ -914,7 +917,8 @@ ok("readBin(\"int64\") keeps it",
 
 ok("the prototype form agrees",   identical(readBin(le64, bytes(0L, 8L, "signed"), 1L),
                                             readBin(le64, "int64", 1L)))
-ok("uint64 name works",           identical(typeof(readBin(le64, "uint64", 1L)), "uint64"))
+ok("uint64 name works",           identical(storage.mode(readBin(le64, "uint64", 1L)),
+                                             "uint64"))
 ok("opaque name works",           identical(as.character(readBin(le64, "bytes8", 1L)),
                                             "0100000001000000"))
 ok("\"int\" is still integer",     identical(readBin(le64, "int", 2L), c(1L, 1L)))
@@ -968,7 +972,7 @@ for (spec in list(list(8L, "signed"), list(8L, "unsigned"),
                   list(16L, "unsigned"), list(6L, "opaque"), list(1L, "opaque"))) {
     w <- spec[[1]]; k <- spec[[2]]
     v <- suppressWarnings(as.bytes(as.raw(rep(c(1:250, 7L), length.out = 5 * w)), w, k))
-    nm <- typeof(v)
+    nm <- storage.mode(v)
     ok(sprintf("%s: writeBin/readBin round trip", nm),
        identical(suppressWarnings(readBin(writeBin(v, raw()), v, 5L)), v))
     if (k != "opaque")
@@ -1063,7 +1067,7 @@ tf <- tempfile()
 writeLines(c("9223372036854775807", "-1", "NA", "0"), tf)
 ok("scan reads a bytes prototype",{
     v <- scan(tf, what = bytes(0L, 8L, "signed"), quiet = TRUE)
-    identical(typeof(v), "int64") &&
+    identical(storage.mode(v), "int64") &&
         identical(as.character(v), c("9223372036854775807", "-1", NA, "0")) })
 ok("na.strings are honoured",     { v <- scan(tf, what = bytes(0L, 8L, "signed"),
                                               na.strings = c("NA", "-1"), quiet = TRUE)
@@ -1111,8 +1115,8 @@ writeLines(c("id,name,uid",
              "-9007199254740993,b,ffffffffffffffffffffffffffffff00",
              "NA,c,00000000000000000000000000000000"), tc)
 d <- utils::read.csv(tc, colClasses = c(id = "int64", uid = "bytes16"))
-ok("colClasses = \"int64\"",       identical(typeof(d$id), "int64"))
-ok("colClasses = \"bytes16\"",     identical(typeof(d$uid), "bytes16"))
+ok("colClasses = \"int64\"",       identical(storage.mode(d$id), "int64"))
+ok("colClasses = \"bytes16\"",     identical(storage.mode(d$uid), "bytes16"))
 ok("the value is exact",         identical(as.character(d$id[1]), "9223372036854775807"))
 ok("a double would not be",      as.character(as.numeric("9223372036854775807")) !=
                                  "9223372036854775807")
@@ -1126,10 +1130,10 @@ ok("an unknown class still errs",inherits(tryCatch(utils::read.csv(tc, colClasse
                                                    error = identity), "error"))
 
 ## the mode names, which is how read.table builds the prototype
-ok("vector() takes a bytes mode",identical(typeof(vector("uint128", 3L)), "uint128"))
+ok("vector() takes a storage mode", identical(storage.mode(vector("uint128", 3L)),
+                                                "uint128"))
 ok("and zero-fills",             identical(as.character(vector("int64", 2L)), c("0", "0")))
-ok("vector(\"bytes\") takes the default", { v <- vector("bytes", 1L)
-                                   is.fixedwidth(v) && bytesWidth(v) == 1L })
+probe("vector(\"bytes\") needs a prototype", vector("bytes", 1L))
 probe("vector(\"int65\")",         vector("int65", 1L))
 ok("as.vector() parses text",    identical(as.character(as.vector("9223372036854775807", "int64")),
                                            "9223372036854775807"))
@@ -1139,7 +1143,8 @@ ok("as.vector() drops names",    is.null(names(as.vector(c(a = as.bytes("1", 8L,
 ## vector this file opened with, and a stray assignment here would make
 ## its "must still fail loudly" probes quietly pass
 ok("storage.mode<- converts",    { sm <- c("1", "2"); storage.mode(sm) <- "uint64"
-                                   identical(typeof(sm), "uint64") })
+                                   identical(typeof(sm), "bytes") &&
+                                       identical(storage.mode(sm), "uint64") })
 ok("storage.mode<- keeps dim",   { sm <- 1:4; dim(sm) <- c(2L, 2L)
                                    storage.mode(sm) <- "int64"
                                    identical(dim(sm), c(2L, 2L)) })

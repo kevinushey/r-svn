@@ -65,7 +65,8 @@ as.uint64 <- function(x, na = TRUE) as.bytes(x,  8L, "unsigned", na)
 as.int128 <- function(x, na = TRUE) as.bytes(x, 16L, "signed",   na)
 as.uint128 <- function(x, na = TRUE) as.bytes(x, 16L, "unsigned", na)
 
-## Does this name spell a 'bytes' type -- "int64", "uint128", "bytes16"?
+## Does this name spell a detailed 'bytes' storage mode --
+## "int64", "uint128", "bytes16"?
 ## The grammar itself lives in R_bytesTypeFromName() (src/main/bytes.c),
 ## which every consumer re-validates against; this is the cheap R-level
 ## screen readBin() and `mode<-` need before handing a name over, and it

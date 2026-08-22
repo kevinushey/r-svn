@@ -815,11 +815,10 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (length(CADR(args)) != 1) error(_("invalid '%s' argument"), "length");
     len = asVecSize(CADR(args));
     if (len < 0) error(_("invalid '%s' argument"), "length");
-    /* A type name carries the width and the kind but not the sentinel,
-       so no name spells a whole 'bytes' type.  An existing vector does,
-       the way readBin() and scan() take one in place of a name, and it
-       is what lets the vector(typeof(x), n) idiom reproduce a vector
-       created with na = FALSE. */
+    /* A storage-mode name carries the width and kind but not the
+       sentinel, so no string spells a whole 'bytes' type.  An existing
+       vector does, the way readBin() and scan() take one in place of a
+       name. */
     if (TYPEOF(CAR(args)) == BYTESXP)
 	return R_allocVectorLike(CAR(args), len);
 
@@ -827,11 +826,11 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (length(s) != 1) error(_("invalid '%s' argument"), "mode");
     const char *modestr = CHAR(STRING_ELT(s, 0)); /* ASCII */
 
-    /* A 'bytes' mode names its width and kind -- "int64", "uint128",
-       "bytes16" -- because those are per-vector properties that a
-       SEXPTYPE cannot carry.  Checked before str2type(), which knows
-       only the coarse name "bytes"; that one is answered with the
-       family's default further down. */
+    /* A detailed 'bytes' storage mode names its width and kind --
+       "int64", "uint128", "bytes16" -- because those are per-vector
+       properties that a SEXPTYPE cannot carry.  Checked before
+       str2type(), which knows only the incomplete structural name
+       "bytes". */
     int bwidth, bkind;
     if (R_bytesTypeFromName(modestr, &bwidth, &bkind))
 	return R_allocBytesVector(len, bwidth, bkind, TRUE);
@@ -840,10 +839,8 @@ attribute_hidden SEXP do_makevector(SEXP call, SEXP op, SEXP args, SEXP rho)
     if (mode == -1 && streql(modestr, "double"))
 	mode = REALSXP;
     if (mode == BYTESXP)
-	/* "bytes" denotes the opaque family's default -- width 1 with
-	   an NA reservation.  A specific fixed-width type is named by
-	   typeof(), or given as a vector above. */
-	return R_allocBytesVector(len, 1, BYTEVEC_OPAQUE, TRUE);
+	error(_("'%s' does not name a complete storage mode; give a width and a kind, as '%s' does, or supply a prototype"),
+	      "bytes", "int64");
     switch (mode) {
     case LGLSXP:
     case INTSXP:

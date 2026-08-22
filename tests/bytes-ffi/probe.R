@@ -50,7 +50,8 @@ chk2 <- function(got, want, why) {
     if (!good) fails <<- fails + 1L
     cat(sprintf("  %-24s %s   %s\n", "", if (good) "ok  " else "FAIL", why))
 }
-chk2(typeof(made), "uint64", "R_allocBytesVector() makes a real uint64 vector")
+chk2(typeof(made), "bytes", "R_allocBytesVector() makes a real bytes vector")
+chk2(storage.mode(made), "uint64", "and its storage mode records uint64")
 chk2(length(made), 4L, "length is the element count, not the byte count")
 chk2(is.na(made), c(TRUE, FALSE, FALSE, FALSE),
      "R_bytesSetNA() marks an element missing")

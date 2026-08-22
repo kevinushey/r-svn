@@ -361,8 +361,8 @@ const char *R_typeToChar2(SEXP x, SEXPTYPE t) {
 #endif
 
 const char *R_typeToChar(SEXP x) {
-    // = type2char() but distinguishing {S4, object} and naming a
-    // 'bytes' vector by its kind and width
+    // = type2char() but distinguishing {S4, object} and giving a
+    // detailed storage-mode name for a 'bytes' vector in diagnostics
     if(TYPEOF(x) == OBJSXP)
 	return IS_S4_OBJECT(x) ? "S4" : "object";
     else if(TYPEOF(x) == BYTESXP)

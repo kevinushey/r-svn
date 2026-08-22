@@ -20,18 +20,19 @@ is.vector(x, mode = "any")
 \arguments{
   \item{mode}{character string naming an atomic mode or
     \code{"list"} or \code{"expression"} or (except for \code{vector})
-    \code{"any"}.  For a \code{\link{bytes}} vector the mode names the
-    width and the kind, as \code{\link{typeof}} reports them --
-    \code{"int64"}, \code{"uint128"}, \code{"bytes16"} -- since neither
-    is implied by the type alone; plain \code{"bytes"}, as
-    \code{\link{mode}} reports it, gives the default width and kind of
-    \code{\link{bytes}} itself, the way \code{"numeric"} gives a
-    double.  No name states whether \code{NA} is representable, so
-    \code{vector} also accepts an existing \code{bytes} vector in place
-    of a name and builds one of the same type throughout, as
-    \code{\link{readBin}} and \code{\link{scan}} do.
+    \code{"any"}.  For a \code{\link{bytes}} vector a detailed storage
+    mode names the width and kind, as \code{\link{storage.mode}} reports
+    them -- \code{"int64"}, \code{"uint128"}, \code{"bytes16"}.  Plain
+    \code{"bytes"}, as \code{\link{typeof}} reports it, does not specify
+    a complete storage mode and is therefore an error for \code{vector}.
+    No name states whether \code{NA} is representable, so \code{vector}
+    also accepts an existing \code{bytes} vector in place of a name and
+    builds one of the same type throughout, as \code{\link{readBin}} and
+    \code{\link{scan}} do.
     Currently, \code{is.vector()} allows any type (see
-    \code{\link{typeof}}) for \code{mode}, and when mode is not
+    \code{\link{typeof}}) for \code{mode}.  For a \code{bytes} vector
+    it also accepts \code{"numeric"} when that is its mode and its
+    detailed storage-mode name.  Otherwise, when mode is not
     \code{"any"}, \code{is.vector(x, mode)} is almost the same as
     \code{typeof(x) == mode}.}% differences: for mode = NA, or mode = "numeric"
   \item{length}{a non-negative integer specifying the desired length.  For

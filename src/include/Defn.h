@@ -537,7 +537,7 @@ typedef union {
 
 #endif /* USE_RINTERNALS */
 
-/* BYTESXP: vectors of fixed-width opaque data.  XLENGTH() is the
+/* BYTESXP: vectors of fixed-width data.  XLENGTH() is the
    element count, as for every other vector; the payload is
    XLENGTH(x) * BYTEVEC_WIDTH(x) bytes.  The width lives in gp bits
    8-15, clear of the low bits that generic vector code uses

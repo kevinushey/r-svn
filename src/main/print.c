@@ -521,7 +521,7 @@ static void PrintGenericVector(SEXP s, R_PrintData *data)
 		break;
 	    case BYTESXP:
 		/* a single element renders in full, as for the other
-		   atomic types; the type name carries the width.  This is
+		   atomic types; its storage mode carries the width.  This is
 		   the one arm of this switch that prints a value rather
 		   than a summary, so it is also the one that can outrun
 		   pbuf: a wide element runs to hundreds of digits, and

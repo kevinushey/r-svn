@@ -27,18 +27,13 @@ mode <- function(x) {
     switch(tx <- typeof(x),
 	   double =, integer = "numeric", # 'real=' dropped, 2000/Jan/14
 	   closure =, builtin =, special = "function",
-	   ## These are their own mode, and naming them is not redundant
-	   ## with the default below: a 'bytes' vector is the only type
-	   ## whose typeof() is not a fixed string -- it names the width and
-	   ## the kind -- so this is what keeps every other type off a test
-	   ## that has to look at the object.  A name left out of the list
-	   ## only pays for that test; it is not answered wrongly.
 	   logical =, character =, complex =, raw =, list =, pairlist =,
 	   environment =, externalptr =, promise =, weakref =, bytecode =,
 	   S4 =, `NULL` = tx,
-	   ## otherwise: the public mode follows the interpretation, not
-	   ## BYTESXP's shared storage representation
-	   if(is.numeric(x)) "numeric" else if(is.bytes(x)) "bytes" else tx)
+	   ## BYTESXP's public mode follows its interpretation rather than
+	   ## its shared structural type.
+	   bytes = if(is.numeric(x)) "numeric" else "bytes",
+	   tx)
 }
 
 `mode<-` <- function(x, value)
@@ -66,10 +61,18 @@ mode <- function(x) {
     x
 }
 
-storage.mode <- function(x)
+storage.mode <- function(x) {
+    if(is.fixedwidth(x)) {
+	w <- bytesWidth(x)
+	return(switch(bytesKind(x),
+		      opaque = paste0("bytes", w),
+		      unsigned = paste0("uint", 8L * w),
+		      signed = paste0("int", 8L * w)))
+    }
     switch(tx <- typeof(x),
 	   closure = , builtin = , special = "function",
 	   ## otherwise
 	   tx)
+}
 
 ### storage.mode<- is primitive as from R 2.6.0
