@@ -37,6 +37,8 @@
 #endif
 
 #include <ctype.h>
+#include <float.h>	/* DBL_MAX_10_EXP */
+#include <math.h>	/* floor */
 
 #include <Defn.h>
 #include <Internal.h>
@@ -786,6 +788,78 @@ static SEXP bytesFromString(SEXP x, int width, int kind, int hasNA)
     return val;
 }
 
+/* Build a 'bytes' vector from a double vector.  Only a value that is
+   exactly the integer it appears to be is taken: a finite double whose
+   value is integral and in range converts exactly, while a fraction, an
+   infinity, a NaN or a magnitude the type cannot hold becomes NA with a
+   warning -- the two failures counted apart, as as.integer() does,
+   because 1.5 and 1e99 are different mistakes.
+
+   What this CANNOT see is a double that was already wrong before it got
+   here.  The literal 9007199254740993 is the double 9007199254740992 by
+   the time as.bytes() is called, and nothing at this point can tell it
+   from a value that was always ...992.  That is a property of double
+   literals rather than of this conversion, and the character form is
+   what carries such magnitudes intact -- which is why ?bytes points at
+   it for anything past 2^53.
+
+   Every element goes through the decimal text parser.  A finite double
+   has a finite exact decimal expansion, so printing it and parsing that
+   is exact at every width -- including the top half of uint64 and all
+   of int128, which no C integer type this code can count on would
+   hold. */
+static SEXP bytesFromReal(SEXP x, int width, int kind, int hasNA)
+{
+    R_xlen_t n = XLENGTH(x);
+    SEXP val = PROTECT(R_allocBytesVectorUninit(n, width, kind,
+						hasNA ? TRUE : FALSE));
+    R_xlen_t nBad = 0, nOver = 0, nReserved = 0;
+
+    for (R_xlen_t i = 0; i < n; i++) {
+	double v = REAL_ELT(x, i);
+	Rbyte *p = BYTEVEC_ELT(val, i);
+	/* the widest exact decimal expansion a double has, plus sign */
+	char buf[DBL_MAX_10_EXP + 8];
+
+	if (ISNAN(v)) {
+	    R_bytesCheckNA(val);
+	    R_bytesSetEltNA(p, width, kind);
+	    continue;
+	}
+
+	if (!R_FINITE(v) || v != floor(v)) {
+	    nBad++;
+	    R_bytesCheckNA(val);
+	    R_bytesSetEltNA(p, width, kind);
+	    continue;
+	}
+
+	snprintf(buf, sizeof buf, "%.0f", v);
+
+	/* the text came from a double, so it cannot fail to parse */
+	if (R_bytesEltFromString(p, buf, width, kind, hasNA != 0)
+	    == BYTES_PARSE_OK) {
+	    if (hasNA && R_bytesEltIsNA(p, width, kind)) nReserved++;
+	    continue;
+	}
+
+	nOver++;
+	R_bytesCheckNA(val);
+	R_bytesSetEltNA(p, width, kind);
+    }
+
+    if (nBad)
+	warning(_("NAs introduced by coercion"));
+    if (nOver)
+	warning(_("NAs introduced by values outside the range of '%s'"),
+		R_bytesTypeName(val));
+    R_bytesWarnReservedCount(nReserved);
+
+    UNPROTECT(1);
+
+    return val;
+}
+
 /* Build a 'bytes' vector of this width and kind from x.  Behind
    as.bytes(), and behind as.vector(x, "int64") and its relatives,
    which name the width and kind rather than passing them.
@@ -794,8 +868,8 @@ static SEXP bytesFromString(SEXP x, int width, int kind, int hasNA)
    the numeric kinds that means the caller supplies native byte order,
    which is what makes ingest from an external source a plain memcpy.
    A character vector is parsed.  Integer and logical vectors narrow,
-   as they do in arithmetic.  Double is refused there and is refused
-   here for the same reason. */
+   as they do in arithmetic.  A double is taken only where it is exactly
+   the integer it looks like; see bytesFromReal() above. */
 SEXP R_bytesConvert(SEXP x, int width, int kind, int hasNA, SEXP call)
 {
     if (TYPEOF(x) == BYTESXP) {
@@ -820,14 +894,15 @@ SEXP R_bytesConvert(SEXP x, int width, int kind, int hasNA, SEXP call)
 	return R_bytesNarrow(x, width, kind, hasNA, call);
     }
 
-    /* Refused for the reason the whole coercion lattice refuses it: a
-       double neither contains nor is contained by a 64-bit integer, so
-       there is no conversion that is right in general.  as.character()
-       is not the way out either -- a double has already lost the digits
-       by the time it could be printed. */
-    if (TYPEOF(x) == REALSXP)
-	error(_("cannot convert a double vector to '%s'; supply an integer vector, or the text of each value for magnitudes a double cannot hold exactly"),
-	      "bytes");
+    if (TYPEOF(x) == REALSXP) {
+	/* An opaque element is a byte string with no numeric reading, so
+	   it takes no more from a double than it does from an integer. */
+	if (kind == BYTEVEC_OPAQUE && !R_bytesAllNA(x))
+	    error(_("cannot convert type '%s' to an opaque '%s' vector: its elements are byte strings, not numbers"),
+		  R_typeToChar(x), "bytes");
+
+	return bytesFromReal(x, width, kind, hasNA);
+    }
 
     if (TYPEOF(x) != RAWSXP)
 	error(_("cannot convert type '%s' to '%s'; supply raw bytes, or the decimal or hex text of each element"),

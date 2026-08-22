@@ -61,9 +61,9 @@ bytesRaw(x)
     \sQuote{Details}.}
   \item{na}{logical: should one value of the width be reserved as the
     \code{NA} sentinel?}
-  \item{x}{for \code{as.bytes}, a raw, character, integer or logical
-    vector, or another \code{bytes} vector; for the predicates, any
-    object; for the accessors, a \code{bytes} vector.}
+  \item{x}{for \code{as.bytes}, a raw, character, integer, logical or
+    double vector, or another \code{bytes} vector; for the predicates,
+    any object; for the accessors, a \code{bytes} vector.}
 }
 \details{
   Unlike every other vector type, the element size of a \code{bytes}
@@ -193,6 +193,17 @@ bytesRaw(x)
   or does not fit giving \code{NA} with a warning.  Integer and logical
   vectors narrow, except into the opaque kind, which takes no number:
   there \code{NA} converts and everything else is an error.
+
+  A double is taken where it is exactly the integer it appears to be:
+  a finite value with no fractional part, within the range of the width
+  and kind, converts exactly, at any width.  A fractional value or an
+  infinity gives \code{NA} with a warning, as does one the type cannot
+  hold, exactly as for \code{\link{as.integer}}.  Note that this can
+  only judge the double it is given: a literal beyond \eqn{2^{53}}{2^53}
+  has already been rounded before \code{as.bytes} sees it, and
+  \code{as.bytes(9007199254740993)} is indistinguishable from
+  \code{as.bytes(9007199254740992)}.  Write such a value as text, which
+  is exact at every magnitude.
 
   Another \code{bytes} vector is converted between widths and between
   the two numeric kinds, preserving the value: a value that does not fit

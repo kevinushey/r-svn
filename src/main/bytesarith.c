@@ -753,18 +753,27 @@ SEXP R_bytesFromBytes(SEXP x, int w, int kind, int hasNA, SEXP call)
     return ans;
 }
 
-/* Whether x is a logical or integer vector holding nothing but NA.
-   NA_LOGICAL and NA_INTEGER are the same value, so one test serves
-   both. */
+/* Whether x is a logical, integer or double vector holding nothing but
+   NA.  NA_LOGICAL and NA_INTEGER are the same value, so one test serves
+   both; for a double NaN counts, since is.na() says it does and the
+   conversion turns it into NA either way. */
 attribute_hidden
 bool R_bytesAllNA(SEXP x)
 {
     SEXPTYPE t = TYPEOF(x);
+    R_xlen_t n = XLENGTH(x);
+
+    if (t == REALSXP) {
+	for (R_xlen_t i = 0; i < n; i++)
+	    if (!ISNAN(REAL_ELT(x, i)))
+		return false;
+
+	return true;
+    }
 
     if (t != INTSXP && t != LGLSXP)
 	return false;
 
-    R_xlen_t n = XLENGTH(x);
     for (R_xlen_t i = 0; i < n; i++)
 	if ((t == INTSXP ? INTEGER_ELT(x, i) : LOGICAL_ELT(x, i)) != NA_INTEGER)
 	    return false;

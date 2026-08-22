@@ -771,3 +771,61 @@ local({
 		       "error"),
 	      length(vector("numeric", as.bytes("3", 8L, "unsigned"))) == 3L)
 })
+
+## A double converts where it is exactly the integer it appears to be,
+## at any width -- including magnitudes no C integer type would hold.
+## It has to give the same answer as the text form, because the text
+## form is what it is checked against everywhere else.
+local({
+    stopifnot(identical(as.bytes(42, 8L, "signed"),
+		        as.bytes("42", 8L, "signed")),
+	      ## exact well past 2^53, and past what a long long holds
+	      identical(as.bytes(2^62, 8L, "signed"),
+		        as.bytes("4611686018427387904", 8L, "signed")),
+	      identical(as.bytes(2^63, 8L, "unsigned"),
+		        as.bytes("9223372036854775808", 8L, "unsigned")),
+	      identical(as.bytes(2^100, 16L, "signed"),
+		        as.bytes("1267650600228229401496703205376", 16L, "signed")),
+	      identical(as.bytes(-2^62, 8L, "signed"),
+		        as.bytes("-4611686018427387904", 8L, "signed")))
+
+    ## the same conversion behind the other two spellings
+    stopifnot(identical(as.vector(42, "int64"), as.bytes(42, 8L, "signed")),
+	      identical({ z <- 42; storage.mode(z) <- "int64"; z },
+		        as.bytes(42, 8L, "signed")))
+
+    ## a value that is not an integer is not one at any width, and is a
+    ## different mistake from one that is simply too large
+    w <- NULL
+    val <- withCallingHandlers(as.bytes(c(1.5, Inf, -Inf), 8L, "signed"),
+			       warning = function(e) {
+				   w <<- c(w, conditionMessage(e))
+				   invokeRestart("muffleWarning") })
+    stopifnot(all(is.na(val)), length(w) == 1L,
+	      grepl("coercion", w))
+
+    w <- NULL
+    val <- withCallingHandlers(as.bytes(c(1e30, -1), 8L, "unsigned"),
+			       warning = function(e) {
+				   w <<- c(w, conditionMessage(e))
+				   invokeRestart("muffleWarning") })
+    stopifnot(all(is.na(val)), length(w) == 1L,
+	      grepl("outside the range", w))
+
+    ## NA and NaN are missing values, not failed conversions
+    stopifnot(identical(is.na(as.bytes(c(NA_real_, NaN, 1), 8L, "signed")),
+		        c(TRUE, TRUE, FALSE)))
+
+    ## an opaque element is a byte string, so it takes no number from a
+    ## double any more than from an integer
+    stopifnot(inherits(tryCatch(as.bytes(1, 8L, "opaque"), error = identity),
+		       "error"),
+	      identical(as.bytes(NA_real_, 8L, "opaque"),
+		        as.bytes(NA, 8L, "opaque")))
+
+    ## with nothing reserved there is no NA to produce
+    stopifnot(inherits(tryCatch(as.bytes(NA_real_, 8L, "signed", na = FALSE),
+			        error = identity), "error"),
+	      inherits(tryCatch(as.bytes(1e30, 8L, "unsigned", na = FALSE),
+			        error = identity), "error"))
+})

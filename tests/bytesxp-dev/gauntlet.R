@@ -896,13 +896,24 @@ ok("na = FALSE cannot make NA",  inherits(tryCatch(as.bytes("abc", 8L, "signed",
                                                    error = identity), "error"))
 
 ## integer and logical narrow into bytes here exactly as they do in
-## arithmetic; double is refused the same way, and opaque reads no
-## numbers at all
+## arithmetic; a double is taken only where it is exactly the integer
+## it looks like, and opaque reads no numbers at all
 ok("integer narrows",            identical(as.character(as.bytes(1:3, 8L, "signed")),
                                            c("1", "2", "3")))
 ok("logical narrows",            identical(as.character(as.bytes(c(TRUE, NA), 8L, "unsigned")),
                                            c("1", NA)))
-probe("as.bytes(double)",        as.bytes(1, 8L, "signed"))
+ok("integral double converts",   identical(as.bytes(1, 8L, "signed"),
+                                           as.bytes("1", 8L, "signed")))
+ok("double exact past 2^53",     identical(as.bytes(2^62, 8L, "signed"),
+                                           as.bytes("4611686018427387904", 8L, "signed")))
+ok("double exact past a long long",
+                                 identical(as.bytes(2^100, 16L, "signed"),
+                                           as.bytes("1267650600228229401496703205376",
+                                                    16L, "signed")))
+ok("fractional double is NA",    is.na(suppressWarnings(as.bytes(1.5, 8L, "signed"))))
+ok("infinite double is NA",      is.na(suppressWarnings(as.bytes(Inf, 8L, "signed"))))
+ok("out-of-range double is NA",  is.na(suppressWarnings(as.bytes(1e30, 8L, "unsigned"))))
+probe("as.bytes(double, opaque)", as.bytes(1, 8L, "opaque"))
 probe("as.bytes(integer, opaque)", as.bytes(1L, 4L, "opaque"))
 probe("as.bytes(list)",          as.bytes(list(1), 8L, "signed"))
 
