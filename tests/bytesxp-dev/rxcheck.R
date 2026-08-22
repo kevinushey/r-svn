@@ -82,5 +82,46 @@ for (spec in list(list(8L, "unsigned"), list(8L, "signed"), list(16L, "signed"),
     chk("rank agrees with order",
         identical(rank(x, ties.method = "first"), as.integer(order(asc))))
 }
+## A byte position that is the same in every key is skipped, so how many
+## passes run depends on the data and not only on the width.  The cases
+## that exercise the skip are the ones where a position never varies:
+## every element equal, so that no pass runs at all, and values small
+## enough that only the low byte moves.  A wrong skip reorders silently,
+## which is invisible unless the reference is independent -- so these go
+## through the same key as everything above.
+cat("\n-- constant byte positions (pass skipping) --\n")
+for (spec in list(list(8L, "unsigned"), list(8L, "signed"), list(16L, "signed"),
+                  list(4L, "unsigned"), list(16L, "opaque"))) {
+    w <- spec[[1L]]; k <- spec[[2L]]
+    M <- 120L
+
+    if (k == "opaque") {
+        ## 0xff is avoided so no element can land on the reserved pattern
+        head <- paste(sprintf("%02x", sample(0:254, w - 1L, TRUE)), collapse = "")
+        cases <- list(`low byte only` = paste0(head, sprintf("%02x", sample.int(200L, M, TRUE))),
+                      `all equal`     = rep(paste0(head, "07"), M))
+        keyf <- identity
+    } else {
+        cases <- list(`low byte only` = as.character(sample.int(200L, M, TRUE)),
+                      `all equal`     = rep("7", M))
+        keyf <- bnKey
+    }
+
+    for (nm in names(cases)) {
+        v <- cases[[nm]]
+        x <- as.bytes(v, w, k)
+        asc <- order(keyf(v))
+        desc <- order(keyf(v), decreasing = TRUE)
+        lab <- sprintf("w%d %s %s:", w, k, nm)
+
+        chk(paste(lab, "order"), identical(order(x), asc))
+        chk(paste(lab, "order decreasing"),
+            identical(order(x, decreasing = TRUE), desc))
+        chk(paste(lab, "sort"), identical(sort(x), x[asc]))
+        chk(paste(lab, "sorted text"), identical(as.character(sort(x)), v[asc]))
+        chk(paste(lab, "sorted really is sorted"), !is.unsorted(sort(x)))
+    }
+}
+
 cat(sprintf("\n%d failure(s)\n", fails))
 if (fails) quit(status = 1L)

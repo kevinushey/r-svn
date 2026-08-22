@@ -674,7 +674,15 @@ static void ssort2(SEXP *x, R_xlen_t n, bool decreasing)
    passes never see one.  For the signed kind the most significant byte
    is biased by 0x80 so that negatives sort first; for a decreasing
    sort every key is complemented, which reverses the order while
-   keeping the stable index tiebreak that R's comparison path gives. */
+   keeping the stable index tiebreak that R's comparison path gives.
+
+   A byte position that is the same in every key cannot change the
+   order, so its pass is skipped entirely.  That matters because the
+   width is a property of the vector and not of the data in it: a uint64
+   column of identifiers, timestamps or counters typically varies only
+   in its low three or four bytes, and without the check it would pay
+   for all eight passes.  R's own radix sort (radixsort.c) skips in the
+   same way. */
 static void bytesRadixOrder(int *indx, R_xlen_t lo, R_xlen_t hi, SEXP key,
 			    bool decreasing)
 {
@@ -686,7 +694,44 @@ static void bytesRadixOrder(int *indx, R_xlen_t lo, R_xlen_t hi, SEXP key,
     int *a = indx + lo;
     const void *vmax = vmaxget();
     int *buf = (int *) R_alloc((size_t) n, sizeof(int));
+    /* The pass's key byte for each position, so that the scatter reads
+       it back sequentially instead of gathering from the payload a
+       second time.  This is worth its n bytes: dropping it costs about
+       a quarter of the whole sort on 5e6 width-8 elements, and it is
+       what the passes that CANNOT be skipped below are paying. */
+    Rbyte *pkey = (Rbyte *) R_alloc((size_t) n, sizeof(Rbyte));
     R_xlen_t count[256];
+    /* diff[c] ORs every key's byte c against the first key's, so it is
+       nonzero exactly where byte position c varies. */
+    Rbyte diff[BYTEVEC_MAX_WIDTH];	/* width is 1..BYTEVEC_MAX_WIDTH */
+
+    /* Settle all w byte positions in ONE sweep rather than testing
+       inside each pass.  Both skip the same passes, but a pass that
+       discovers its own byte is constant has already paid for a random
+       gather over the payload, and that gather -- not the scatter -- is
+       most of what a pass costs.  The sweep reads each key once, in one
+       contiguous piece, and is cheap next to a pass: sorting 5e6
+       width-8 elements whose every position is constant, so that the
+       sweep runs to the end and no pass runs at all, costs about 3ms
+       more than the same test at width 1.  The periodic test stops it
+       early once every position varies.  Comparing the stored bytes is
+       enough: the sign bias and the decreasing complement below are
+       per-byte bijections, so neither can make a constant position vary
+       or the other way about. */
+    memset(diff, 0, (size_t) w);
+    {
+	const Rbyte *first = x + (R_xlen_t) a[0] * w;
+
+	for (R_xlen_t i = 1; i < n; i++) {
+	    const Rbyte *p = x + (R_xlen_t) a[i] * w;
+
+	    for (int c = 0; c < w; c++)
+		diff[c] |= (Rbyte) (p[c] ^ first[c]);
+
+	    if ((i & 1023) == 0 && memchr(diff, 0, (size_t) w) == NULL)
+		break;
+	}
+    }
 
     for (int pass = 0; pass < w; pass++) {
 	/* Pass 0 is the least significant byte: of the value for the
@@ -698,24 +743,26 @@ static void bytesRadixOrder(int *indx, R_xlen_t lo, R_xlen_t hi, SEXP key,
 					  : BYTEVEC_MSB(w - 1 - pass, w);
 	bool top = (pass == w - 1) && (kind == BYTEVEC_INT);
 
+	if (diff[at] == 0)
+	    continue;
+
 	memset(count, 0, sizeof count);
 	for (R_xlen_t i = 0; i < n; i++) {
 	    unsigned int b = x[(R_xlen_t) a[i] * w + at];
 	    if (top) b ^= 0x80u;
 	    if (decreasing) b = 255u - b;
+	    pkey[i] = (Rbyte) b;
 	    count[b]++;
 	}
+
 	for (int c = 0, sum = 0; c < 256; c++) {
 	    R_xlen_t t = count[c];
 	    count[c] = sum;
 	    sum += t;
 	}
-	for (R_xlen_t i = 0; i < n; i++) {
-	    unsigned int b = x[(R_xlen_t) a[i] * w + at];
-	    if (top) b ^= 0x80u;
-	    if (decreasing) b = 255u - b;
-	    buf[count[b]++] = a[i];
-	}
+	for (R_xlen_t i = 0; i < n; i++)
+	    buf[count[pkey[i]]++] = a[i];
+
 	memcpy(a, buf, (size_t) n * sizeof(int));
     }
 
