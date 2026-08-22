@@ -3017,9 +3017,12 @@ SEXP allocVector3(SEXPTYPE type, R_xlen_t length, R_allocator_t *allocator)
 static SEXP allocBytesVector(R_xlen_t length, int width, int kind,
 			     Rboolean hasNA, bool fill)
 {
-    if (width < 1 || width > BYTEVEC_MAX_WIDTH)
+    /* R_bytesTypeSupported() is the public statement of this rule, so it
+       is what decides here too and cannot drift from it; the two calls
+       are separate only to name which half of the element type failed. */
+    if (!R_bytesTypeSupported(width, BYTEVEC_OPAQUE))
 	error(_("'width' must be between 1 and %d"), BYTEVEC_MAX_WIDTH);
-    if (kind != BYTEVEC_OPAQUE && kind != BYTEVEC_UINT && kind != BYTEVEC_INT)
+    if (!R_bytesTypeSupported(BYTEVEC_MAX_WIDTH, kind))
 	error(_("invalid '%s' argument"), "kind");
     if (length < 0)
 	error(_("negative length vectors are not allowed"));

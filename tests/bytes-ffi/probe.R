@@ -112,5 +112,32 @@ chk2(inherits(tryCatch(.Call("resizable", made), error = identity), "error"),
 chk2(is.integer(.Call("resizable", c(1L, 2L, 3L))), TRUE,
      "and still takes an ordinary vector")
 
+## R_bytesTypeSupported(): the question a column reader has to ask
+## before it commits, since the allocator answers with an R error.
+cat("\nasking before allocating:\n")
+kinds <- c(opaque = 0L, unsigned = 1L, signed = 2L)
+supported <- function(w, k) .Call("type_supported", w, k)
+chk2(supported(8L, kinds[["signed"]]), TRUE, "width 8 signed is allocatable")
+chk2(supported(16L, kinds[["opaque"]]), TRUE, "width 16 opaque is allocatable")
+chk2(supported(255L, kinds[["opaque"]]), TRUE, "width 255 is the top of the range")
+chk2(supported(256L, kinds[["opaque"]]), FALSE, "width 256 is not")
+chk2(supported(0L, kinds[["signed"]]), FALSE, "width 0 is not")
+chk2(supported(-1L, kinds[["signed"]]), FALSE, "a negative width is not")
+chk2(supported(8L, 3L), FALSE, "and neither is an unknown kind")
+
+## the predicate and the allocator must never disagree: whatever it
+## admits must allocate, and whatever it refuses must error
+local({
+    ok <- TRUE
+    for (w in c(-1L, 0L, 1L, 7L, 8L, 16L, 254L, 255L, 256L, 1000L))
+        for (k in c(-1L, 0L, 1L, 2L, 3L)) {
+            said <- supported(w, k)
+            did <- tryCatch(.Call("alloc_succeeds", w, k),
+                            error = function(e) FALSE)
+            if (!identical(said, did)) ok <- FALSE
+        }
+    chk2(ok, TRUE, "predicate agrees with the allocator at every pair")
+})
+
 cat(sprintf("\n%d failure(s)\n", fails))
 if (fails) quit(status = 1L)

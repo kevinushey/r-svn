@@ -552,6 +552,19 @@ Rboolean R_isBytes(SEXP x)
     return TYPEOF(x) == BYTESXP ? TRUE : FALSE;
 }
 
+/* Whether R_allocBytesVector() would accept this element type.  A reader
+   mapping a source column onto an R type has to decide before it
+   allocates, because the allocator's refusal is an R error: that is a
+   longjmp out of whatever the caller was in the middle of, which in a
+   C++ column reader means skipped destructors.  Asking first lets it
+   fall back to a double or a character column instead. */
+Rboolean R_bytesTypeSupported(int width, int kind)
+{
+    return (Rboolean) (width >= 1 && width <= BYTEVEC_MAX_WIDTH &&
+		       (kind == BYTEVEC_OPAQUE || kind == BYTEVEC_UINT ||
+			kind == BYTEVEC_INT));
+}
+
 int R_bytesWidth(SEXP x)
 {
     checkBytes(x, "R_bytesWidth");

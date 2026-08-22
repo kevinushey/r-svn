@@ -204,3 +204,25 @@ SEXP make_altrep_with_bytes(SEXP payload)
    make, and R_duplicateAsResizable() must not accept what its sibling
    cannot produce. */
 SEXP resizable(SEXP x) { return R_duplicateAsResizable(x); }
+
+/* A reader choosing what to map a source column onto has to know
+   whether an element type is allocatable BEFORE it allocates, because
+   the allocator's refusal is an R error and unwinding out of a partly
+   built column reader is not what such code wants -- in C++ it skips
+   destructors outright.  R_bytesTypeSupported() answers without
+   allocating and without raising anything. */
+SEXP type_supported(SEXP width, SEXP kind)
+{
+    return ScalarLogical(R_bytesTypeSupported(asInteger(width),
+					      asInteger(kind)));
+}
+
+/* and it has to agree with what R_allocBytesVector() actually does */
+SEXP alloc_succeeds(SEXP width, SEXP kind)
+{
+    SEXP v = PROTECT(R_allocBytesVector(1, asInteger(width), asInteger(kind),
+					TRUE));
+    UNPROTECT(1);
+
+    return ScalarLogical(TYPEOF(v) == BYTESXP);
+}

@@ -317,6 +317,11 @@ int STRING_NO_NA(SEXP x);
    8*width bits held in *native* byte order, so ingesting them from
    another data source is a plain copy.
 
+   R_bytesTypeSupported() reports whether R_allocBytesVector() would
+   accept a (width, kind) pair, so that a reader choosing what to map a
+   source column onto can ask before it allocates rather than taking an
+   error.
+
    hasNA says whether one value of the width is reserved to mean NA
    (all-0xFF for opaque and unsigned, the most negative value for
    signed).  Pass FALSE when every bit pattern in the source is a
@@ -328,6 +333,7 @@ int STRING_NO_NA(SEXP x);
 
 SEXP R_allocBytesVector(R_xlen_t n, int width, int kind, Rboolean hasNA);
 Rboolean R_isBytes(SEXP x);
+Rboolean R_bytesTypeSupported(int width, int kind);
 int R_bytesWidth(SEXP x);
 int R_bytesKind(SEXP x);
 Rboolean R_bytesHasNA(SEXP x);

@@ -15007,8 +15007,15 @@ for @code{NA} together make up a vector's @dfn{element type}: two
 @code{bytes} vectors can be combined or compared only if all three
 agree, and the @code{SEXPTYPE} they share says nothing about any of
 them.
+
+Not every width and kind is allocatable, and code that is choosing what
+to map an external column onto should ask @code{R_bytesTypeSupported}
+before it commits rather than let @code{R_allocBytesVector} refuse: the
+refusal is an R error, and unwinding out of a partly built reader is
+rarely what such code wants.
 @apifun R_allocBytesVector
 @apifun R_isBytes
+@apifun R_bytesTypeSupported
 @apifun R_bytesWidth
 @apifun R_bytesKind
 @apifun R_bytesHasNA
