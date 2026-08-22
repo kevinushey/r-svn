@@ -89,6 +89,46 @@ misses and arithmetic overflow. Vectors with different sentinel
 policies are different element types and cannot be combined, compared
 or matched without explicit conversion.
 
+## Room the representation leaves
+
+The kind occupies two `gp` bits and three of its four values are used,
+so a fourth kind costs nothing in the representation. The obvious
+candidate is IEEE floating point, principally `float16` and `float32`,
+which reach R from Arrow, Parquet and HDF5 columns that today have to
+be widened to double on the way in. Width 8 would duplicate `REALSXP`
+and is only worth having for uniformity; width 16 is `float128`, where
+a platform has one.
+
+**None of this is implemented and none of it is proposed here.** It is
+recorded only to show what the design does and does not foreclose.
+
+Most of the machinery would carry over untouched: per-vector width,
+native-order storage and memcpy ingest, serialization (width and kind
+already ride in `gp` through `PackFlags`), containers, subsetting,
+matrices and the allocation discipline. Four things would be real work
+rather than free:
+
+- **Ordering.** Float bytes do not compare as values. The byte radix
+  needs the usual IEEE key transform first -- flip the sign bit of a
+  positive, invert every bit of a negative -- so that the existing
+  unsigned pass order agrees with numeric order.
+- **The sentinel.** R already reserves a `NaN` payload for `NA_real_`
+  and the same trick generalizes per width, but `float16` has only ten
+  significand bits to hide one in.
+- **Arithmetic.** Widths 4 and 8 have a C type to dispatch to; 2 and 16
+  do not on most platforms, which is the shape the integer kinds
+  already hit at width 16 without `__int128`.
+- **Width 2 is ambiguous.** IEEE half and bfloat16 are both two bytes
+  with different exponent splits. That is exactly the ambiguity the
+  kind field exists to resolve -- a width-16 UUID and a width-16
+  `uint128` are also the same size -- so it would want a fifth kind
+  code, widening the field into free bit 3.
+
+Exact decimal is the other type R lacks, and it does *not* fit here: a
+per-vector scale needs about six bits and only bits 3, 6 and 7 are
+free. It would have to carry the scale in an attribute, which is the
+`class(x) <- c("decimal", class(x))` route rather than a kind.
+
 ## Coercion and operations
 
 Two `BYTESXP` operands must have the same width, kind and sentinel
