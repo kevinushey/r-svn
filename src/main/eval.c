@@ -5758,10 +5758,6 @@ typedef R_bcstack_t * R_binding_cache_t;
 /* An empty entry is NULL rather than R_NilValue, so that a new cache
    can be cleared with memset(). The cache itself is never NULL. */
 #  define VCACHE_EMPTY NULL
-/* Entries of a new cache that are cleared inline; memset() is only
-   called for a larger cache. Most caches are no larger, as the code
-   of a promise rarely has more than a few constants. */
-#  define VCACHE_NCLEAR 12
 #  define VCACHE(i) GETSTACK_SXPVAL_PTR(vcache + (i))
 #  define GET_CACHED_BINDING_CELL(vcache, sidx) VCACHE(CACHEIDX(sidx))
 #  define GET_SMALLCACHE_BINDING_CELL(vcache, sidx) VCACHE(sidx)
@@ -7378,18 +7374,14 @@ static R_INLINE struct vcache_info setup_vcache(SEXP body)
     }
 # endif
 # ifdef CACHE_ON_STACK
-    /* initialize binding cache on the stack; the fixed-size clear can
-       run past the end of a small cache, into stack that is not in
-       use, so there has to be room for it */
-    if (R_BCNodeStackTop + n + 1 + VCACHE_NCLEAR > R_BCNodeStackEnd)
+    /* initialize binding cache on the stack */
+    if (R_BCNodeStackTop + n + 1 > R_BCNodeStackEnd)
 	nodeStackOverflow();
     R_BCNodeStackTop->u.ival = (int) n;
     R_BCNodeStackTop->tag = CACHESZ_TAG;
     R_BCNodeStackTop++;
     vcache = R_BCNodeStackTop;
-    memset(vcache, 0, VCACHE_NCLEAR * sizeof(R_bcstack_t));
-    if (n > VCACHE_NCLEAR)
-	memset(vcache, 0, n * sizeof(R_bcstack_t));
+    memset(vcache, 0, n * sizeof(R_bcstack_t));
     R_BCNodeStackTop += n;
 # else
     /* allocate binding cache and protect on stack */
